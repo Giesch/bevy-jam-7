@@ -15,6 +15,9 @@ tracing = { version = "0.1", features = [
     "release_max_level_warn",
 ] }
 
+bevy_asset_loader = { version = "0.25.0", features = ["2d"] }
+bevy_hotpatching_experiments = "0.4.0"
+
 # Idiomatic Bevy code often triggers these lints, and the CI workflow treats them as errors.
 # In some cases they may still signal poor code quality however, so consider commenting out these lines.
 [lints.clippy]
