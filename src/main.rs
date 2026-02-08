@@ -23,9 +23,10 @@ fn main() -> AppExit {
         ))
         .add_systems(
             OnEnter(Screen::InGame),
-            (play_scherzo, spawn_camera, spawn_quill),
+            (play_scherzo, init_beat_timer, spawn_camera, spawn_quill),
         )
         .init_resource::<Intent>()
+        .init_resource::<BeatIndex>()
         .add_systems(
             FixedUpdate,
             (read_input, move_quill, drop_ink_circles_at_quill)
@@ -33,12 +34,20 @@ fn main() -> AppExit {
                 .run_if(in_state(Screen::InGame)),
         )
         .insert_resource(TrackTimer::new())
-        .add_systems(Update, tick_track_timer.run_if(in_state(Screen::InGame)))
+        .init_resource::<BeatTimer>()
+        .init_resource::<BeatFlash>()
+        .add_systems(
+            Update,
+            (tick_track_timer, tick_beat_timer, set_beat_flash_background)
+                .chain()
+                .run_if(in_state(Screen::InGame)),
+        )
         .run()
 }
 
 #[derive(AssetCollection, Resource)]
 struct AllAssets {
+    #[expect(unused)]
     #[asset(path = "images/Eroica_Beethoven_title.jpg")]
     eroica_score: Handle<Image>,
 
@@ -59,13 +68,12 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
+fn play_scherzo(mut commands: Commands, assets: Res<AllAssets>) {
+    commands.spawn(SamplePlayer::new(assets.scherzo.clone()));
+}
+
 #[derive(Component)]
 struct Quill;
-
-fn play_scherzo(mut commands: Commands, server: Res<AssetServer>) {
-    const SCHERZO: &str = "audio/03_Scherzo_Allegro_vivace.flac";
-    commands.spawn(SamplePlayer::new(server.load(SCHERZO)));
-}
 
 fn spawn_quill(
     mut commands: Commands,
@@ -168,12 +176,76 @@ impl TrackTimer {
     }
 }
 
-fn tick_track_timer(mut track_timer: ResMut<TrackTimer>, time: Res<Time>) {
+fn tick_track_timer(time: Res<Time>, mut track_timer: ResMut<TrackTimer>) {
     track_timer.0.tick(time.delta());
 }
 
 #[derive(serde::Deserialize, bevy::asset::Asset, bevy::reflect::TypePath)]
 struct Beats {
-    bpm: f32,
     beats: Vec<f32>,
+    #[expect(unused)]
+    beats_intervals: Vec<f32>,
+}
+
+#[derive(Resource, Default)]
+struct BeatIndex(usize);
+
+#[derive(Resource, Default)]
+struct BeatTimer(Timer);
+
+impl BeatTimer {
+    fn from_index(beat_index: usize, track_time: f32, beats: &Beats) -> Self {
+        let next_beat_index = beat_index + 1;
+        if next_beat_index > beats.beats.len() {
+            log::warn!("invalid beat index");
+            return Default::default();
+        }
+
+        let next_beat = beats.beats[next_beat_index];
+        let to_next_beat = next_beat - track_time;
+        let duration = Duration::from_secs_f32(to_next_beat);
+        let timer = Timer::new(duration, TimerMode::Once);
+
+        Self(timer)
+    }
+}
+
+fn init_beat_timer(
+    assets: Res<AllAssets>,
+    beats_assets: Res<Assets<Beats>>,
+    mut beat_timer: ResMut<BeatTimer>,
+) {
+    let beats = beats_assets.get(&assets.scherzo_beats).unwrap();
+    *beat_timer = BeatTimer::from_index(0, 0.0, beats);
+}
+
+#[derive(Resource, Default)]
+struct BeatFlash(bool);
+
+fn tick_beat_timer(
+    time: Res<Time>,
+    track_timer: Res<TrackTimer>,
+    assets: Res<AllAssets>,
+    beats_assets: Res<Assets<Beats>>,
+    mut beat_index: ResMut<BeatIndex>,
+    mut beat_timer: ResMut<BeatTimer>,
+    mut beat_flash: ResMut<BeatFlash>,
+) {
+    beat_timer.0.tick(time.delta());
+    beat_flash.0 = beat_timer.0.just_finished();
+    if beat_flash.0 {
+        beat_index.0 += 1;
+        let beats = beats_assets.get(&assets.scherzo_beats).unwrap();
+        let track_time = track_timer.0.elapsed_secs();
+        *beat_timer = BeatTimer::from_index(beat_index.0, track_time, beats);
+    }
+}
+
+#[tweak_fn]
+fn set_beat_flash_background(beat_flash: Res<BeatFlash>, mut clear_color: ResMut<ClearColor>) {
+    *clear_color = if beat_flash.0 {
+        ClearColor(Color::hsl(360.0, 0.75, 0.4))
+    } else {
+        ClearColor::default()
+    };
 }

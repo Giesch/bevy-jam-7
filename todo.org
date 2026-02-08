@@ -5,21 +5,21 @@
 - [X] hot reload working
   using tweak instead because dx didn't work
 
-- [-] flash the background to the beat
+- [X] flash the background to the beat
   - [X] get beats data
   - [X] use bevy_asset_loader
     need to have the assets before the timer starts
   - [X] load beats data as an asset
     need an asset struct for bevy_common_assets
-  - [ ] add a timer & change the background color
+  - [X] add a timer & change the background color
 
-* Next
 - [-] draw a line on mouse down
   - [X] drop circles
   - [ ] get a smoother line
     drop chained curves
     https://bevy.org/examples/math/cubic-splines/
 
+* Next
 - [ ] try using essentia to get beat data out of recorded track
 
 - [ ] gameplay for scribbling out enemies
@@ -41,6 +41,13 @@
   - [ ] text explaining the game
   - [ ] scribble out 'bonaparte'
   - [ ] use bevy_asset_loader
+
+- [ ] split up plugins
+  system sets?
+
+- [ ] improve the timing of the automatic beats
+  - find a better automatic way to extract the info?
+  - or just tweak it manually
 
 * Someday
 - [ ] find a non-jpg format for symphony score photo
