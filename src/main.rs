@@ -15,7 +15,7 @@ fn main() -> AppExit {
         .add_loading_state(
             LoadingState::new(Screen::Loading)
                 .continue_to_state(Screen::InGame)
-                .load_collection::<AllAssets>(),
+                .load_collection::<AllAssetHandles>(),
         )
         .add_plugins((
             SeedlingPlugin::default(),
@@ -23,7 +23,12 @@ fn main() -> AppExit {
         ))
         .add_systems(
             OnEnter(Screen::InGame),
-            (play_scherzo, init_beat_timer, spawn_camera, spawn_quill),
+            (
+                play_scherzo,
+                init_beat_timer,
+                spawn_camera,
+                spawn_quill_reticle,
+            ),
         )
         .init_resource::<Intent>()
         .init_resource::<BeatIndex>()
@@ -38,7 +43,12 @@ fn main() -> AppExit {
         .init_resource::<BeatFlash>()
         .add_systems(
             Update,
-            (tick_track_timer, tick_beat_timer, set_beat_flash_background)
+            (
+                tick_track_timer,
+                tick_beat_timer,
+                quill_reticle_size_beat,
+                set_beat_flash_background,
+            )
                 .chain()
                 .run_if(in_state(Screen::InGame)),
         )
@@ -46,7 +56,7 @@ fn main() -> AppExit {
 }
 
 #[derive(AssetCollection, Resource)]
-struct AllAssets {
+struct AllAssetHandles {
     #[expect(unused)]
     #[asset(path = "images/Eroica_Beethoven_title.jpg")]
     eroica_score: Handle<Image>,
@@ -68,20 +78,23 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn play_scherzo(mut commands: Commands, assets: Res<AllAssets>) {
+fn play_scherzo(mut commands: Commands, assets: Res<AllAssetHandles>) {
     commands.spawn(SamplePlayer::new(assets.scherzo.clone()));
 }
 
 #[derive(Component)]
 struct QuillReticle;
 
-fn spawn_quill(
+const RETICLE_BIG_INNER_RADIUS: f32 = 25.0;
+const RETICLE_BIG_OUTER_RADIUS: f32 = 50.0;
+
+fn spawn_quill_reticle(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mesh = meshes.add(Annulus::new(25.0, 50.0));
-    let color = Color::hsl(360.0, 0.95, 0.7);
+    let mesh = meshes.add(make_reticle(1.0));
+    let color = make_reticle_color(1.0);
 
     commands.spawn((
         QuillReticle,
@@ -89,6 +102,35 @@ fn spawn_quill(
         MeshMaterial2d(materials.add(color)),
         Transform::default(),
     ));
+}
+
+fn make_reticle(ratio: f32) -> Annulus {
+    Annulus::new(
+        ratio * RETICLE_BIG_INNER_RADIUS,
+        ratio * RETICLE_BIG_OUTER_RADIUS,
+    )
+}
+
+fn make_reticle_color(ratio: f32) -> Color {
+    Color::hsl(360.0, ratio * 0.95, 0.7)
+}
+
+#[tweak_fn]
+fn quill_reticle_size_beat(
+    mut reticles: Query<(&mut Mesh2d, &mut MeshMaterial2d<ColorMaterial>), With<QuillReticle>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    beat_timer: Res<BeatTimer>,
+) {
+    let ratio = beat_timer.angle_wave();
+
+    let shape = make_reticle(ratio);
+    let color = make_reticle_color(ratio);
+    for (mut mesh, mut material) in &mut reticles {
+        // TODO do we need to cache these? or premake a bunch of them
+        mesh.0 = meshes.add(shape);
+        material.0 = materials.add(color);
+    }
 }
 
 #[derive(Resource, Default)]
@@ -208,10 +250,25 @@ impl BeatTimer {
 
         Self(timer)
     }
+
+    // how far through the beat we are, 0.0-1.0
+    fn elapsed_ratio(&self) -> f32 {
+        self.0.elapsed_secs() / self.0.duration().as_secs_f32()
+    }
+
+    // 0.0-1.0
+    // 0.0 == on downbeat, 1.0 = up between beats
+    // TODO replace this with an actual curved wave of some kind
+    //   faster on the way down?
+    fn angle_wave(&self) -> f32 {
+        let one_on_beat = (0.5 - self.elapsed_ratio()).abs() * 0.5 + 0.5;
+        let zero_on_beat = 1.0 - one_on_beat;
+        zero_on_beat
+    }
 }
 
 fn init_beat_timer(
-    assets: Res<AllAssets>,
+    assets: Res<AllAssetHandles>,
     beats_assets: Res<Assets<Beats>>,
     mut beat_timer: ResMut<BeatTimer>,
 ) {
@@ -225,7 +282,7 @@ struct BeatFlash(bool);
 fn tick_beat_timer(
     time: Res<Time>,
     track_timer: Res<TrackTimer>,
-    assets: Res<AllAssets>,
+    assets: Res<AllAssetHandles>,
     beats_assets: Res<Assets<Beats>>,
     mut beat_index: ResMut<BeatIndex>,
     mut beat_timer: ResMut<BeatTimer>,
