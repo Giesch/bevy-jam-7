@@ -47,26 +47,37 @@ fn spawn_quill(
 
 #[derive(Resource, Default)]
 struct Intent {
+    /// the mouse position in world space
+    mouse_pos: Option<Vec2>,
+    /// whether the player is currently scribbling
     quill_down: bool,
 }
 
-fn read_input(mut intent: ResMut<Intent>, mouse: Res<ButtonInput<MouseButton>>) {
+fn read_input(
+    mut intent: ResMut<Intent>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    mouse: Res<ButtonInput<MouseButton>>,
+) {
+    let (camera, camera_transform) = *camera_query;
     intent.quill_down = mouse.pressed(MouseButton::Left);
+    intent.mouse_pos = read_mouse_pos_in_world_space(&window, camera, camera_transform);
+}
+
+fn read_mouse_pos_in_world_space(
+    window: &Window,
+    camera: &Camera,
+    camera_transform: &GlobalTransform,
+) -> Option<Vec2> {
+    let viewport_position = window.cursor_position()?;
+    camera
+        .viewport_to_world_2d(camera_transform, viewport_position)
+        .ok()
 }
 
 #[tweak_fn]
-fn lerp_quill_to_mouse(
-    window: Single<&Window, With<PrimaryWindow>>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    mut quills: Query<&mut Transform, With<Quill>>,
-) {
-    let Some(mouse_pos_screen_space) = window.cursor_position() else {
-        return;
-    };
-
-    let (camera, camera_transform) = *camera_query;
-    let Ok(mouse_pos) = camera.viewport_to_world_2d(camera_transform, mouse_pos_screen_space)
-    else {
+fn lerp_quill_to_mouse(intent: Res<Intent>, mut quills: Query<&mut Transform, With<Quill>>) {
+    let Some(mouse_pos) = intent.mouse_pos else {
         return;
     };
 
