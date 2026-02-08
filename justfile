@@ -14,4 +14,4 @@ web:
 beats:
     ./scripts/extract_beats.py \
       './assets/audio/03_Scherzo_Allegro_vivace.flac' \
-      './assets/data/beats.json'
+      './assets/audio/scherzo.beats.json'

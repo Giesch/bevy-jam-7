@@ -6,7 +6,10 @@
 
 - [-] flash the background to the beat
   - [X] get beats data
+  - [ ] use bevy_asset_loader
+    need to have the assets before the timer starts
   - [ ] load beats data as an asset
+    need an asset struct for bevy_common_assets
   - [ ] add a timer & change the background color
 
 - [-] draw a line on mouse down

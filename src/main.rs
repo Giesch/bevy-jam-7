@@ -3,13 +3,17 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use bevy_common_assets::json::JsonAssetPlugin;
 use bevy_seedling::prelude::*;
 use inline_tweak::*;
 
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(SeedlingPlugin::default())
+        .add_plugins((
+            SeedlingPlugin::default(),
+            JsonAssetPlugin::<Beats>::new(&["beats.json"]),
+        ))
         .add_systems(Startup, (play_scherzo, spawn_camera, spawn_quill))
         .init_resource::<Intent>()
         .add_systems(
@@ -136,4 +140,10 @@ impl TrackTimer {
 
 fn tick_track_timer(mut track_timer: ResMut<TrackTimer>, time: Res<Time>) {
     track_timer.0.tick(time.delta());
+}
+
+#[derive(serde::Deserialize, bevy::asset::Asset, bevy::reflect::TypePath)]
+struct Beats {
+    bpm: f32,
+    beats: Vec<f32>,
 }

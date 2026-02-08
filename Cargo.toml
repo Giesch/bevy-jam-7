@@ -44,6 +44,8 @@ tracing = { version = "0.1", features = [
 rand = "0.9"
 bevy_asset_loader = { version = "0.25.0", features = ["2d"] }
 inline_tweak = { version = "1.2.4", features = ["derive"] }
+bevy_common_assets = { version = "0.15.0", features = ["json"] }
+serde = "1.0.228"
 
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
