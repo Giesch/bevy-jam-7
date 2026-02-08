@@ -12,7 +12,7 @@ fn main() -> AppExit {
         .init_resource::<Intent>()
         .add_systems(
             FixedUpdate,
-            (read_input, lerp_quill_to_mouse, drop_ink_circles_at_quill).chain(),
+            (read_input, move_quill, drop_ink_circles_at_quill).chain(),
         )
         .run()
 }
@@ -76,7 +76,7 @@ fn read_mouse_pos_in_world_space(
 }
 
 #[tweak_fn]
-fn lerp_quill_to_mouse(intent: Res<Intent>, mut quills: Query<&mut Transform, With<Quill>>) {
+fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<Quill>>) {
     let Some(mouse_pos) = intent.mouse_pos else {
         return;
     };
