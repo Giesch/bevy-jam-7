@@ -73,7 +73,7 @@ fn play_scherzo(mut commands: Commands, assets: Res<AllAssets>) {
 }
 
 #[derive(Component)]
-struct Quill;
+struct QuillReticle;
 
 fn spawn_quill(
     mut commands: Commands,
@@ -84,7 +84,7 @@ fn spawn_quill(
     let color = Color::hsl(360.0, 0.95, 0.7);
 
     commands.spawn((
-        Quill,
+        QuillReticle,
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
         Transform::default(),
@@ -122,7 +122,7 @@ fn read_mouse_pos_in_world_space(
 }
 
 #[tweak_fn]
-fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<Quill>>) {
+fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<QuillReticle>>) {
     let Some(mouse_pos) = intent.mouse_pos else {
         return;
     };
@@ -145,7 +145,7 @@ fn drop_ink_circles_at_quill(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    quills: Query<&Transform, With<Quill>>,
+    quills: Query<&Transform, With<QuillReticle>>,
 ) {
     if !intent.quill_down {
         return;
