@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use bevy_asset_loader::prelude::*;
 use bevy_common_assets::json::JsonAssetPlugin;
 use bevy_seedling::prelude::*;
 use inline_tweak::*;
@@ -10,19 +11,48 @@ use inline_tweak::*;
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_state::<Screen>()
+        .add_loading_state(
+            LoadingState::new(Screen::Loading)
+                .continue_to_state(Screen::InGame)
+                .load_collection::<AllAssets>(),
+        )
         .add_plugins((
             SeedlingPlugin::default(),
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
         ))
-        .add_systems(Startup, (play_scherzo, spawn_camera, spawn_quill))
+        .add_systems(
+            OnEnter(Screen::InGame),
+            (play_scherzo, spawn_camera, spawn_quill),
+        )
         .init_resource::<Intent>()
         .add_systems(
             FixedUpdate,
-            (read_input, move_quill, drop_ink_circles_at_quill).chain(),
+            (read_input, move_quill, drop_ink_circles_at_quill)
+                .chain()
+                .run_if(in_state(Screen::InGame)),
         )
         .insert_resource(TrackTimer::new())
-        .add_systems(Update, tick_track_timer)
+        .add_systems(Update, tick_track_timer.run_if(in_state(Screen::InGame)))
         .run()
+}
+
+#[derive(AssetCollection, Resource)]
+struct AllAssets {
+    #[asset(path = "images/Eroica_Beethoven_title.jpg")]
+    eroica_score: Handle<Image>,
+
+    #[asset(path = "audio/03_Scherzo_Allegro_vivace.flac")]
+    scherzo: Handle<AudioSample>,
+    #[asset(path = "audio/scherzo.beats.json")]
+    scherzo_beats: Handle<Beats>,
+}
+
+#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
+enum Screen {
+    #[default]
+    Loading,
+    InGame,
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -89,7 +119,7 @@ fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<Quill>
         return;
     };
 
-    let quill_speed = 0.1;
+    let quill_speed = 0.2;
     for mut quill_transform in &mut quills {
         let quill_pos = quill_transform.translation.xy();
         let moved = quill_pos.lerp(mouse_pos, quill_speed);

@@ -29,6 +29,8 @@ bevy = { version = "0.18.0", default-features = false, features = [
   "wayland",
   "webgl2",
   "x11",
+
+  "jpeg",
 ] }
 
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
