@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -14,6 +16,8 @@ fn main() -> AppExit {
             FixedUpdate,
             (read_input, move_quill, drop_ink_circles_at_quill).chain(),
         )
+        .insert_resource(TrackTimer::new())
+        .add_systems(Update, tick_track_timer)
         .run()
 }
 
@@ -116,4 +120,20 @@ fn drop_ink_circles_at_quill(
             Transform::from_translation(quill_transform.translation),
         ));
     }
+}
+
+/// Elapsed time of the current music track
+#[derive(Resource, Default)]
+struct TrackTimer(Timer);
+
+impl TrackTimer {
+    fn new() -> Self {
+        let timer = Timer::new(Duration::from_mins(100), TimerMode::Once);
+
+        Self(timer)
+    }
+}
+
+fn tick_track_timer(mut track_timer: ResMut<TrackTimer>, time: Res<Time>) {
+    track_timer.0.tick(time.delta());
 }
