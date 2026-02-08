@@ -8,7 +8,11 @@ fn main() -> AppExit {
         .add_plugins(DefaultPlugins)
         .add_plugins(SeedlingPlugin::default())
         .add_systems(Startup, (play_scherzo, spawn_camera, spawn_quill))
-        .add_systems(FixedUpdate, (lerp_quill_to_mouse,))
+        .init_resource::<Intent>()
+        .add_systems(
+            FixedUpdate,
+            (read_input, lerp_quill_to_mouse, drop_ink_circles_at_quill).chain(),
+        )
         .run()
 }
 
@@ -40,13 +44,20 @@ fn spawn_quill(
     ));
 }
 
+#[derive(Resource, Default)]
+struct Intent {
+    quill_down: bool,
+}
+
+fn read_input(mut intent: ResMut<Intent>, mouse: Res<ButtonInput<MouseButton>>) {
+    intent.quill_down = mouse.pressed(MouseButton::Left);
+}
+
 fn lerp_quill_to_mouse(
     window: Single<&Window, With<PrimaryWindow>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     mut quills: Query<&mut Transform, With<Quill>>,
 ) {
-    let quill_speed = tweak!(0.1);
-
     let Some(mouse_pos_screen_space) = window.cursor_position() else {
         return;
     };
@@ -57,10 +68,38 @@ fn lerp_quill_to_mouse(
         return;
     };
 
+    let quill_speed = tweak!(0.1);
     for mut quill_transform in &mut quills {
         let quill_pos = quill_transform.translation.xy();
         let moved = quill_pos.lerp(mouse_pos, quill_speed);
         quill_transform.translation.x = moved.x;
         quill_transform.translation.y = moved.y;
+    }
+}
+
+#[derive(Component)]
+struct Ink;
+
+fn drop_ink_circles_at_quill(
+    intent: Res<Intent>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    quills: Query<&Transform, With<Quill>>,
+) {
+    if !intent.quill_down {
+        return;
+    }
+
+    let mesh = meshes.add(Circle::new(tweak!(10.0)));
+    let color = Color::hsl(tweak!(360.0), tweak!(0.85), tweak!(0.7));
+
+    for quill_transform in &quills {
+        commands.spawn((
+            Ink,
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(materials.add(color)),
+            Transform::from_translation(quill_transform.translation),
+        ));
     }
 }

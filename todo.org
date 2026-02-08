@@ -1,0 +1,29 @@
+#+title: Todo
+
+- [X] make window resizable for native (native only?)
+- [X] hot reload working
+  using tweak instead because dx didn't work
+
+- [-] draw a line on mouse down
+  - [X] drop circles
+  - [ ] get a smoother line
+    drop chained curves
+    https://bevy.org/examples/math/cubic-splines/
+
+- [ ] try using essentia to get beat data out of recorded track
+
+- [ ] gameplay for scribbling out enemies
+
+- [ ] rhythm game stuff
+  - [ ] pulsing ink color
+  - [ ] pulsing quill movement speed?
+    does it need physics for that? like add a boost on the beat
+  - [ ] beat-locked soldier animations
+
+- [ ] replace ring with quill sprite
+- [ ] soldier sprite animation
+
+- [ ] screens/intro
+  - [ ] text explaining the game
+  - [ ] scribble out 'bonaparte'
+  - [ ] use bevy_asset_loader
