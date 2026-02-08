@@ -1,33 +1,21 @@
 #+title: Todo
 
 * Now
-- [X] make window resizable for native (native only?)
-- [X] hot reload working
-  using tweak instead because dx didn't work
+- [ ] get a smoother line
+  drop chained curves for ink instead of circles
+  https://bevy.org/examples/math/cubic-splines/
 
-- [X] flash the background to the beat
-  - [X] get beats data
-  - [X] use bevy_asset_loader
-    need to have the assets before the timer starts
-  - [X] load beats data as an asset
-    need an asset struct for bevy_common_assets
-  - [X] add a timer & change the background color
+- [ ] move the quill back and for around the reticle to scribble
+  - [ ] split out some kind of QuillTarget component for where it's lerping to
+  - [ ] set that by the beat and the reticle
 
-- [-] draw a line on mouse down
-  - [X] drop circles
-  - [ ] get a smoother line
-    drop chained curves
-    https://bevy.org/examples/math/cubic-splines/
+- [ ] rotate the quill based on it's position relative to the reticle
 
 * Next
-- [ ] try using essentia to get beat data out of recorded track
-
 - [ ] gameplay for scribbling out enemies
 
 - [ ] rhythm game stuff
-  - [ ] pulsing ink color
   - [ ] pulsing quill movement speed?
-    does it need physics for that? like add a boost on the beat
   - [ ] beat-locked soldier animations
 
 - [ ] pixel art
@@ -48,6 +36,9 @@
 - [ ] improve the timing of the automatic beats
   - find a better automatic way to extract the info?
   - or just tweak it manually
+
+- [ ] 'fever dream'
+  - [ ] add bloom, pulsing ink color
 
 * Someday
 - [ ] find a non-jpg format for symphony score photo

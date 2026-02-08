@@ -1,6 +1,8 @@
 use std::time::Duration;
 
+use bevy::color::palettes::tailwind;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 
 use bevy_asset_loader::prelude::*;
@@ -15,21 +17,18 @@ fn main() -> AppExit {
         .add_loading_state(
             LoadingState::new(Screen::Loading)
                 .continue_to_state(Screen::InGame)
-                .load_collection::<AllAssetHandles>(),
+                .load_collection::<StartupAssetHandles>(),
         )
         .add_plugins((
             SeedlingPlugin::default(),
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
+            JsonAssetPlugin::<SpriteAtlas>::new(&["atlas.json"]),
         ))
         .add_systems(
             OnEnter(Screen::InGame),
-            (
-                play_scherzo,
-                init_beat_timer,
-                spawn_camera,
-                spawn_quill_reticle,
-            ),
+            (play_scherzo, init_beat_timer, spawn_camera, spawn_quill),
         )
+        .insert_resource(ClearColor(Color::Srgba(tailwind::GRAY_200)))
         .init_resource::<Intent>()
         .init_resource::<BeatIndex>()
         .add_systems(
@@ -43,28 +42,29 @@ fn main() -> AppExit {
         .init_resource::<BeatFlash>()
         .add_systems(
             Update,
-            (
-                tick_track_timer,
-                tick_beat_timer,
-                quill_reticle_size_beat,
-                set_beat_flash_background,
-            )
+            (tick_track_timer, tick_beat_timer, quill_reticle_size_beat)
                 .chain()
                 .run_if(in_state(Screen::InGame)),
         )
         .run()
 }
 
+/// handles to the assets loaded on game start
 #[derive(AssetCollection, Resource)]
-struct AllAssetHandles {
+struct StartupAssetHandles {
     #[expect(unused)]
     #[asset(path = "images/Eroica_Beethoven_title.jpg")]
     eroica_score: Handle<Image>,
 
-    #[asset(path = "audio/03_Scherzo_Allegro_vivace.flac")]
+    #[asset(path = "audio/03_scherzo.mp3")]
     scherzo: Handle<AudioSample>,
-    #[asset(path = "audio/scherzo.beats.json")]
+    #[asset(path = "audio/03_scherzo.beats.json")]
     scherzo_beats: Handle<Beats>,
+
+    #[asset(path = "sprites/sprite_sheet.png")]
+    sprite_sheet: Handle<Image>,
+    #[asset(path = "sprites/sprite_sheet.atlas.json")]
+    sprite_atlas: Handle<SpriteAtlas>,
 }
 
 #[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
@@ -78,7 +78,7 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn play_scherzo(mut commands: Commands, assets: Res<AllAssetHandles>) {
+fn play_scherzo(mut commands: Commands, assets: Res<StartupAssetHandles>) {
     commands.spawn(SamplePlayer::new(assets.scherzo.clone()));
 }
 
@@ -88,22 +88,39 @@ struct QuillReticle;
 const RETICLE_BIG_INNER_RADIUS: f32 = 25.0;
 const RETICLE_BIG_OUTER_RADIUS: f32 = 50.0;
 
-fn spawn_quill_reticle(
+const RETICLE_Z: f32 = 10.0;
+const INK_Z: f32 = 0.0;
+
+fn spawn_quill(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_handles: Res<StartupAssetHandles>,
+    atlases: Res<Assets<SpriteAtlas>>,
 ) {
     let mesh = meshes.add(make_reticle(1.0));
     let color = make_reticle_color(1.0);
+    let translation = Vec3::new(0.0, 0.0, RETICLE_Z);
+
+    let atlas = atlases.get(&asset_handles.sprite_atlas).unwrap();
+    let offsets = atlas.get_offsets_or_panic("quill");
+
+    let sprite = Sprite {
+        image: asset_handles.sprite_sheet.clone(),
+        rect: Some(offsets.as_rect()),
+        ..default()
+    };
 
     commands.spawn((
         QuillReticle,
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
-        Transform::default(),
+        Transform::from_translation(translation),
+        children![(Anchor::BOTTOM_LEFT, sprite,)],
     ));
 }
 
+#[tweak_fn]
 fn make_reticle(ratio: f32) -> Annulus {
     Annulus::new(
         ratio * RETICLE_BIG_INNER_RADIUS,
@@ -111,8 +128,10 @@ fn make_reticle(ratio: f32) -> Annulus {
     )
 }
 
+#[tweak_fn]
 fn make_reticle_color(ratio: f32) -> Color {
-    Color::hsl(360.0, ratio * 0.95, 0.7)
+    let lightness = (1.0 - ratio) * 0.5 + 0.2;
+    Color::hsl(200.0, 0.95, lightness)
 }
 
 #[tweak_fn]
@@ -127,7 +146,7 @@ fn quill_reticle_size_beat(
     let shape = make_reticle(ratio);
     let color = make_reticle_color(ratio);
     for (mut mesh, mut material) in &mut reticles {
-        // TODO do we need to cache these? or premake a bunch of them
+        // TODO does making a bunch of these cost anything?
         mesh.0 = meshes.add(shape);
         material.0 = materials.add(color);
     }
@@ -169,10 +188,10 @@ fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<QuillR
         return;
     };
 
-    let quill_speed = 0.2;
+    let quill_lerp_speed = 0.2;
     for mut quill_transform in &mut quills {
         let quill_pos = quill_transform.translation.xy();
-        let moved = quill_pos.lerp(mouse_pos, quill_speed);
+        let moved = quill_pos.lerp(mouse_pos, quill_lerp_speed);
         quill_transform.translation.x = moved.x;
         quill_transform.translation.y = moved.y;
     }
@@ -197,11 +216,12 @@ fn drop_ink_circles_at_quill(
     let color = Color::hsl(360.0, 0.85, 0.7);
 
     for quill_transform in &quills {
+        let translation = quill_transform.translation.with_z(INK_Z);
         commands.spawn((
             Ink,
             Mesh2d(mesh.clone()),
             MeshMaterial2d(materials.add(color)),
-            Transform::from_translation(quill_transform.translation),
+            Transform::from_translation(translation),
         ));
     }
 }
@@ -268,7 +288,7 @@ impl BeatTimer {
 }
 
 fn init_beat_timer(
-    assets: Res<AllAssetHandles>,
+    assets: Res<StartupAssetHandles>,
     beats_assets: Res<Assets<Beats>>,
     mut beat_timer: ResMut<BeatTimer>,
 ) {
@@ -282,7 +302,7 @@ struct BeatFlash(bool);
 fn tick_beat_timer(
     time: Res<Time>,
     track_timer: Res<TrackTimer>,
-    assets: Res<AllAssetHandles>,
+    assets: Res<StartupAssetHandles>,
     beats_assets: Res<Assets<Beats>>,
     mut beat_index: ResMut<BeatIndex>,
     mut beat_timer: ResMut<BeatTimer>,
@@ -298,11 +318,66 @@ fn tick_beat_timer(
     }
 }
 
-#[tweak_fn]
-fn set_beat_flash_background(beat_flash: Res<BeatFlash>, mut clear_color: ResMut<ClearColor>) {
-    *clear_color = if beat_flash.0 {
-        ClearColor(Color::hsl(360.0, 0.75, 0.4))
-    } else {
-        ClearColor::default()
-    };
+// Aseprite integration
+
+#[derive(serde::Deserialize, bevy::asset::Asset, bevy::reflect::TypePath)]
+struct SpriteAtlas {
+    #[expect(unused)]
+    meta: SpriteAtlasMeta,
+    frames: Vec<SpriteFrame>,
+}
+
+impl SpriteAtlas {
+    fn get_offsets_or_panic<'s>(&'s self, name: &str) -> &'s SpriteAtlasFrameOffsets {
+        let frame = self
+            .frames
+            .iter()
+            .find(|f| f.filename.starts_with(name))
+            .unwrap();
+
+        &frame.frame
+    }
+}
+
+#[expect(unused)]
+#[derive(serde::Deserialize)]
+struct SpriteAtlasMeta {
+    size: SpriteAtlasSize,
+}
+
+#[expect(unused)]
+#[derive(serde::Deserialize)]
+struct SpriteAtlasSize {
+    w: usize,
+    h: usize,
+}
+
+#[derive(serde::Deserialize)]
+struct SpriteFrame {
+    filename: String,
+    frame: SpriteAtlasFrameOffsets,
+    // we don't want to use this literally
+    // but do we still want it for handling proportions?
+    #[expect(unused)]
+    duration: u64,
+}
+
+#[derive(serde::Deserialize)]
+struct SpriteAtlasFrameOffsets {
+    x: usize,
+    y: usize,
+    w: usize,
+    h: usize,
+}
+
+impl SpriteAtlasFrameOffsets {
+    fn as_rect(&self) -> Rect {
+        let min = Vec2::new(self.x as f32, self.y as f32);
+
+        let max_x = self.x as f32 + self.w as f32;
+        let max_y = self.y as f32 + self.h as f32;
+        let max = Vec2::new(max_x, max_y);
+
+        Rect { min, max }
+    }
 }

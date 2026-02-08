@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy_seedling = { version = "0.7.0", features = ["rand", "flac", "web_audio"] }
+bevy_seedling = { version = "0.7.0", features = ["rand", "flac", "mp3", "web_audio"] }
 # disabling the default bevy audio feature, to replace it with seedling
 # https://github.com/CorvusPrudens/bevy_seedling?tab=readme-ov-file#getting-started
 bevy = { version = "0.18.0", default-features = false, features = [
