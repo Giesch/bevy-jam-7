@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+
 use bevy_seedling::prelude::*;
-use inline_tweak::tweak;
+use inline_tweak::*;
 
 fn main() -> AppExit {
     App::new()
@@ -53,6 +54,7 @@ fn read_input(mut intent: ResMut<Intent>, mouse: Res<ButtonInput<MouseButton>>) 
     intent.quill_down = mouse.pressed(MouseButton::Left);
 }
 
+#[tweak_fn]
 fn lerp_quill_to_mouse(
     window: Single<&Window, With<PrimaryWindow>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
@@ -68,7 +70,7 @@ fn lerp_quill_to_mouse(
         return;
     };
 
-    let quill_speed = tweak!(0.1);
+    let quill_speed = 0.1;
     for mut quill_transform in &mut quills {
         let quill_pos = quill_transform.translation.xy();
         let moved = quill_pos.lerp(mouse_pos, quill_speed);
@@ -80,6 +82,7 @@ fn lerp_quill_to_mouse(
 #[derive(Component)]
 struct Ink;
 
+#[tweak_fn]
 fn drop_ink_circles_at_quill(
     intent: Res<Intent>,
     mut commands: Commands,
@@ -91,8 +94,8 @@ fn drop_ink_circles_at_quill(
         return;
     }
 
-    let mesh = meshes.add(Circle::new(tweak!(10.0)));
-    let color = Color::hsl(tweak!(360.0), tweak!(0.85), tweak!(0.7));
+    let mesh = meshes.add(Circle::new(10.0));
+    let color = Color::hsl(360.0, 0.85, 0.7);
 
     for quill_transform in &quills {
         commands.spawn((
