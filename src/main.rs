@@ -34,6 +34,7 @@ fn main() -> AppExit {
         .add_systems(
             FixedUpdate,
             (
+                spawn_enemies,
                 read_input,
                 move_quill_reticle,
                 move_quill_target,
@@ -99,11 +100,12 @@ struct Quill;
 #[derive(Component)]
 struct QuillTarget;
 
-const RETICLE_BIG_INNER_RADIUS: f32 = 25.0;
-const RETICLE_BIG_OUTER_RADIUS: f32 = 50.0;
+const RETICLE_BIG_INNER_RADIUS: f32 = 30.0;
+const RETICLE_BIG_OUTER_RADIUS: f32 = 40.0;
 
 const RETICLE_Z: f32 = 10.0;
-const INK_Z: f32 = 0.0;
+const INK_Z: f32 = 5.0;
+const ENEMY_Z: f32 = 0.0;
 
 fn spawn_quill(
     mut commands: Commands,
@@ -516,4 +518,38 @@ impl SpriteAtlasFrameOffsets {
 
         Rect { min, max }
     }
+}
+
+#[derive(Component)]
+struct Enemy;
+
+fn spawn_enemies(
+    beat_flash: Res<BeatFlash>,
+    beat_index: Res<BeatIndex>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands,
+) {
+    let on_beat_4 = beat_index.0 % 4 == 0;
+    if !on_beat_4 || !beat_flash.0 {
+        return;
+    }
+
+    let capsule = Capsule2d::new(20.0, 40.0);
+    let mesh = meshes.add(capsule);
+    let color = make_enemy_color();
+
+    let enemy_pos = Vec2::splat(200.0);
+
+    commands.spawn((
+        Enemy,
+        Mesh2d(mesh.clone()),
+        MeshMaterial2d(materials.add(color)),
+        Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
+    ));
+}
+
+fn make_enemy_color() -> Color {
+    let hue = 358.0;
+    Color::hsl(hue, 1.0, 0.6)
 }

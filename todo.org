@@ -1,21 +1,20 @@
 #+title: Todo
 
 * Now
-- [X] get a smoother line
-  - [X] drop capsules for now
-
-- [X] despawn ink on a timer
-
-- [X] move the quill back and for around the reticle to scribble
-  - [X] split out a QuillTarget component for where it's lerping to
-  - [X] set that by the beat and the reticle
-
-- [X] rotate the quill based on it's position relative to the reticle
-
-* Next
 - [ ] gameplay for scribbling out enemies
   first with no art; just capsules or something
+  - [ ] display a capsule enemy
+  - [ ] enemy moves toward the center
+    lerp forward to the beat
+  - [ ] make clicking on an enemy slow/stop it
+    within some hit-circle range?
+  - [ ] add an on-hit animation
 
+
+- [ ] add a thing to defend in the center
+  french flag?
+
+* Next
 - [ ] rhythm game stuff
   - [ ] pulsing quill movement speed?
   - [ ] beat-locked soldier animations
