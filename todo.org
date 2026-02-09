@@ -1,12 +1,13 @@
 #+title: Todo
 
 * Now
-- [ ] get a smoother line
-  drop chained curves for ink instead of circles
-  https://bevy.org/examples/math/cubic-splines/
+- [X] get a smoother line
+  - [X] drop capsules for now
+
+- [X] despawn ink on a timer
 
 - [ ] move the quill back and for around the reticle to scribble
-  - [ ] split out some kind of QuillTarget component for where it's lerping to
+  - [ ] split out a QuillTarget component for where it's lerping to
   - [ ] set that by the beat and the reticle
 
 - [ ] rotate the quill based on it's position relative to the reticle
@@ -39,6 +40,9 @@
 
 - [ ] 'fever dream'
   - [ ] add bloom, pulsing ink color
+
+- [ ] drop chained curves instead of capsules for ink
+  https://bevy.org/examples/math/cubic-splines/
 
 * Someday
 - [ ] find a non-jpg format for symphony score photo

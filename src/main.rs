@@ -33,7 +33,12 @@ fn main() -> AppExit {
         .init_resource::<BeatIndex>()
         .add_systems(
             FixedUpdate,
-            (read_input, move_quill, drop_ink_circles_at_quill)
+            (
+                read_input,
+                move_quill,
+                drop_ink_behind_quill,
+                despawn_old_ink,
+            )
                 .chain()
                 .run_if(in_state(Screen::InGame)),
         )
@@ -85,6 +90,9 @@ fn play_scherzo(mut commands: Commands, assets: Res<StartupAssetHandles>) {
 #[derive(Component)]
 struct QuillReticle;
 
+#[derive(Component)]
+struct Quill;
+
 const RETICLE_BIG_INNER_RADIUS: f32 = 25.0;
 const RETICLE_BIG_OUTER_RADIUS: f32 = 50.0;
 
@@ -116,7 +124,7 @@ fn spawn_quill(
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(translation),
-        children![(Anchor::BOTTOM_LEFT, sprite,)],
+        children![(Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default())],
     ));
 }
 
@@ -198,31 +206,91 @@ fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<QuillR
 }
 
 #[derive(Component)]
-struct Ink;
+struct Ink {
+    spawn_beat: usize,
+}
 
 #[tweak_fn]
-fn drop_ink_circles_at_quill(
+fn make_ink_color() -> Color {
+    make_reticle_color(0.75)
+}
+
+#[tweak_fn]
+fn drop_ink_behind_quill(
+    beat_index: Res<BeatIndex>,
+    quills: Query<&GlobalTransform, With<Quill>>,
+    mut last_quill_pos_maybe: Local<Option<Vec2>>,
     intent: Res<Intent>,
-    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    quills: Query<&Transform, With<QuillReticle>>,
+    mut commands: Commands,
 ) {
-    if !intent.quill_down {
-        return;
+    let quill_position = quills.single().unwrap().translation();
+
+    match *last_quill_pos_maybe {
+        None => {
+            *last_quill_pos_maybe = Some(quill_position.xy());
+        }
+
+        Some(last_quill_pos) => {
+            let quill_pos = quill_position.xy();
+            let capsule_rotation = {
+                match (quill_pos - last_quill_pos).try_normalize() {
+                    None => Quat::default(),
+                    Some(mouse_direction) => {
+                        let capsule_angle = Vec2::Y.angle_to(mouse_direction);
+                        dbg!(mouse_direction);
+                        dbg!(capsule_angle);
+                        Quat::from_rotation_z(capsule_angle)
+                    }
+                }
+            };
+
+            let capsule_pos = quill_pos.midpoint(last_quill_pos);
+            let capsule_transform = Transform {
+                translation: capsule_pos.extend(INK_Z),
+                rotation: capsule_rotation,
+                ..default()
+            };
+
+            let capsule_len = quill_pos.distance(last_quill_pos).abs();
+            let capsule_radius = 5.0;
+            let capsule = Capsule2d::new(capsule_radius, capsule_len);
+
+            *last_quill_pos_maybe = Some(quill_pos);
+            if !intent.quill_down {
+                return;
+            }
+
+            let mesh = meshes.add(capsule);
+            let color = make_ink_color();
+
+            dbg!(&capsule);
+            dbg!(&capsule_transform);
+            commands.spawn((
+                Ink {
+                    spawn_beat: beat_index.0,
+                },
+                Mesh2d(mesh.clone()),
+                MeshMaterial2d(materials.add(color)),
+                capsule_transform,
+            ));
+        }
     }
+}
 
-    let mesh = meshes.add(Circle::new(10.0));
-    let color = Color::hsl(360.0, 0.85, 0.7);
-
-    for quill_transform in &quills {
-        let translation = quill_transform.translation.with_z(INK_Z);
-        commands.spawn((
-            Ink,
-            Mesh2d(mesh.clone()),
-            MeshMaterial2d(materials.add(color)),
-            Transform::from_translation(translation),
-        ));
+#[tweak_fn]
+fn despawn_old_ink(
+    beat_index: Res<BeatIndex>,
+    inks: Query<(Entity, &Ink)>,
+    mut commands: Commands,
+) {
+    for (entity, ink) in &inks {
+        let age_beats = beat_index.0 - ink.spawn_beat;
+        let despawn_after_beats = 2;
+        if age_beats > despawn_after_beats {
+            commands.entity(entity).despawn();
+        }
     }
 }
 
