@@ -127,16 +127,17 @@ fn spawn_quill(
         ..default()
     };
 
-    commands.spawn((
-        QuillReticle,
-        Mesh2d(mesh),
-        MeshMaterial2d(materials.add(color)),
-        Transform::from_translation(translation),
-        children![
-            (Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default()),
-            (QuillTarget, Transform::default())
-        ],
-    ));
+    commands
+        .spawn((
+            QuillReticle,
+            Mesh2d(mesh),
+            MeshMaterial2d(materials.add(color)),
+            Transform::from_translation(translation),
+        ))
+        .with_children(|parent| {
+            parent.spawn((Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default()));
+            parent.spawn((QuillTarget, Transform::default()));
+        });
 }
 
 #[tweak_fn]
