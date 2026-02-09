@@ -35,6 +35,8 @@ fn main() -> AppExit {
             FixedUpdate,
             (
                 read_input,
+                move_quill_reticle,
+                move_quill_target,
                 move_quill,
                 drop_ink_behind_quill,
                 despawn_old_ink,
@@ -93,6 +95,9 @@ struct QuillReticle;
 #[derive(Component)]
 struct Quill;
 
+#[derive(Component)]
+struct QuillTarget;
+
 const RETICLE_BIG_INNER_RADIUS: f32 = 25.0;
 const RETICLE_BIG_OUTER_RADIUS: f32 = 50.0;
 
@@ -124,7 +129,10 @@ fn spawn_quill(
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(translation),
-        children![(Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default())],
+        children![
+            (Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default()),
+            (QuillTarget, Transform::default())
+        ],
     ));
 }
 
@@ -191,18 +199,68 @@ fn read_mouse_pos_in_world_space(
 }
 
 #[tweak_fn]
-fn move_quill(intent: Res<Intent>, mut quills: Query<&mut Transform, With<QuillReticle>>) {
+fn move_quill_reticle(
+    intent: Res<Intent>,
+    mut reticles: Query<&mut Transform, With<QuillReticle>>,
+) {
     let Some(mouse_pos) = intent.mouse_pos else {
         return;
     };
 
-    let quill_lerp_speed = 0.2;
-    for mut quill_transform in &mut quills {
-        let quill_pos = quill_transform.translation.xy();
-        let moved = quill_pos.lerp(mouse_pos, quill_lerp_speed);
-        quill_transform.translation.x = moved.x;
-        quill_transform.translation.y = moved.y;
+    let reticle_lerp_speed = 0.2;
+    for mut transform in &mut reticles {
+        let pos = transform.translation.xy();
+        let moved = pos.lerp(mouse_pos, reticle_lerp_speed);
+        transform.translation.x = moved.x;
+        transform.translation.y = moved.y;
     }
+}
+
+#[tweak_fn]
+fn move_quill_target(
+    intent: Res<Intent>,
+    beat_index: Res<BeatIndex>,
+    beat_flash: Res<BeatFlash>,
+    mut quill_targets: Query<&mut Transform, With<QuillTarget>>,
+) {
+    let mut target_transform = quill_targets.single_mut().unwrap();
+
+    if intent.quill_down {
+        let even_beat = beat_index.0 % 2 == 0;
+        let horizontal_range = 125.0;
+        let x_dir = if even_beat { 1.0 } else { -1.0 };
+        let x = x_dir * horizontal_range;
+
+        let y = if beat_flash.0 {
+            let vertical_range = 30.0;
+            use rand::prelude::*;
+            let mut rng = rand::rng();
+
+            rng.random_range(-vertical_range..vertical_range)
+        } else {
+            target_transform.translation.y
+        };
+
+        target_transform.translation = Vec3::new(x, y, 0.0);
+    } else {
+        target_transform.translation = Vec3::ZERO;
+    }
+}
+
+#[tweak_fn]
+fn move_quill(
+    quill_targets: Query<&Transform, With<QuillTarget>>,
+    mut quills: Query<&mut Transform, (With<Quill>, Without<QuillTarget>)>,
+) {
+    let quill_lerp_speed = 0.2;
+
+    let quill_target_transform = quill_targets.single().unwrap();
+    let target_pos = quill_target_transform.translation.xy();
+    let mut quill_transform = quills.single_mut().unwrap();
+    let pos = quill_transform.translation.xy();
+    let moved = pos.lerp(target_pos, quill_lerp_speed);
+
+    quill_transform.translation = moved.extend(0.0);
 }
 
 #[derive(Component)]
@@ -239,8 +297,6 @@ fn drop_ink_behind_quill(
                     None => Quat::default(),
                     Some(mouse_direction) => {
                         let capsule_angle = Vec2::Y.angle_to(mouse_direction);
-                        dbg!(mouse_direction);
-                        dbg!(capsule_angle);
                         Quat::from_rotation_z(capsule_angle)
                     }
                 }
@@ -265,8 +321,6 @@ fn drop_ink_behind_quill(
             let mesh = meshes.add(capsule);
             let color = make_ink_color();
 
-            dbg!(&capsule);
-            dbg!(&capsule_transform);
             commands.spawn((
                 Ink {
                     spawn_beat: beat_index.0,
