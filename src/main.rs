@@ -38,6 +38,7 @@ fn main() -> AppExit {
                 move_quill_reticle,
                 move_quill_target,
                 move_quill,
+                rotate_quill_sprite,
                 drop_ink_behind_quill,
                 despawn_old_ink,
             )
@@ -216,6 +217,8 @@ fn move_quill_reticle(
     }
 }
 
+const SCRIBBLE_HORIZONTAL_RANGE: f32 = 125.0;
+
 #[tweak_fn]
 fn move_quill_target(
     intent: Res<Intent>,
@@ -227,9 +230,8 @@ fn move_quill_target(
 
     if intent.quill_down {
         let even_beat = beat_index.0 % 2 == 0;
-        let horizontal_range = 125.0;
         let x_dir = if even_beat { 1.0 } else { -1.0 };
-        let x = x_dir * horizontal_range;
+        let x = x_dir * SCRIBBLE_HORIZONTAL_RANGE;
 
         let y = if beat_flash.0 {
             let vertical_range = 30.0;
@@ -261,6 +263,18 @@ fn move_quill(
     let moved = pos.lerp(target_pos, quill_lerp_speed);
 
     quill_transform.translation = moved.extend(0.0);
+}
+
+#[tweak_fn]
+fn rotate_quill_sprite(mut quills: Query<&mut Transform, With<Quill>>) {
+    let mut quill_transform = quills.single_mut().unwrap();
+
+    let x_neg_one_to_one = quill_transform.translation.x / SCRIBBLE_HORIZONTAL_RANGE;
+    let mut angle_radians = x_neg_one_to_one * -1.0;
+    let angle_modifier = if angle_radians < 0.0 { 0.25 } else { 0.75 };
+    angle_radians *= angle_modifier;
+
+    quill_transform.rotation = Quat::from_rotation_z(angle_radians);
 }
 
 #[derive(Component)]

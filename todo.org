@@ -6,14 +6,15 @@
 
 - [X] despawn ink on a timer
 
-- [ ] move the quill back and for around the reticle to scribble
-  - [ ] split out a QuillTarget component for where it's lerping to
-  - [ ] set that by the beat and the reticle
+- [X] move the quill back and for around the reticle to scribble
+  - [X] split out a QuillTarget component for where it's lerping to
+  - [X] set that by the beat and the reticle
 
-- [ ] rotate the quill based on it's position relative to the reticle
+- [X] rotate the quill based on it's position relative to the reticle
 
 * Next
 - [ ] gameplay for scribbling out enemies
+  first with no art; just capsules or something
 
 - [ ] rhythm game stuff
   - [ ] pulsing quill movement speed?
