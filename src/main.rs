@@ -652,7 +652,7 @@ fn make_enemy_color() -> Color {
 #[tweak_fn]
 fn update_enemy_lerp_dests(
     on_beat: Res<OnBeat>,
-    enemies: Query<(&Transform, &LerpDestination), With<Enemy>>,
+    enemies: Query<(&Transform, &LerpDestination, Option<&GotHit>), With<Enemy>>,
     mut destinations: Query<&mut Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
 ) {
     if !on_beat.0 {
@@ -660,7 +660,8 @@ fn update_enemy_lerp_dests(
     }
 
     let enemy_lerp_range = 75.0;
-    for (enemy_transform, lerp_dest) in &enemies {
+    let enemy_hit_lerp_range = 15.0;
+    for (enemy_transform, lerp_dest, got_hit) in &enemies {
         let enemy_pos = enemy_transform.translation.xy();
 
         let dir_to_origin = (-enemy_pos).try_normalize();
@@ -668,7 +669,12 @@ fn update_enemy_lerp_dests(
             continue;
         };
 
-        let new_dest_pos = (dir_to_origin * enemy_lerp_range) + enemy_pos;
+        let new_dest_pos = if got_hit.is_some() {
+            (-1.0 * dir_to_origin * enemy_hit_lerp_range) + enemy_pos
+        } else {
+            (dir_to_origin * enemy_lerp_range) + enemy_pos
+        };
+
         let mut lerp_dest_transform = destinations.get_mut(lerp_dest.0).unwrap();
         lerp_dest_transform.translation.x = new_dest_pos.x;
         lerp_dest_transform.translation.y = new_dest_pos.y;
@@ -677,16 +683,12 @@ fn update_enemy_lerp_dests(
 
 #[tweak_fn]
 fn move_enemies(
-    mut enemies: Query<(&mut Transform, &LerpDestination, Option<&GotHit>), With<Enemy>>,
+    mut enemies: Query<(&mut Transform, &LerpDestination), With<Enemy>>,
     destinations: Query<&Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
 ) {
     let enemy_lerp_speed = 0.2;
 
-    for (mut enemy_transform, lerp_dest, got_hit) in &mut enemies {
-        if got_hit.is_some() {
-            continue;
-        }
-
+    for (mut enemy_transform, lerp_dest) in &mut enemies {
         let enemy_pos = enemy_transform.translation.xy();
         let dest_transform = destinations.get(lerp_dest.0).unwrap();
         let dest_pos = dest_transform.translation.xy();
