@@ -42,6 +42,8 @@ fn main() -> AppExit {
                 quill_reticle_size_beat,
                 // old fixed update things:
                 read_input,
+                remove_hit_circles,
+                add_player_hit_circle,
                 // enemies
                 spawn_enemies,
                 update_enemy_lerp_dests,
@@ -149,6 +151,39 @@ fn spawn_quill(
     ));
 }
 
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct HitCircle {
+    radius: f32,
+}
+
+fn remove_hit_circles(mut commands: Commands, hit_circles: Query<Entity, With<HitCircle>>) {
+    for hit_circle in &hit_circles {
+        commands.entity(hit_circle).despawn();
+    }
+}
+
+fn add_player_hit_circle(
+    mut commands: Commands,
+    intent: Res<Intent>,
+    quills: Query<&Transform, With<QuillReticle>>,
+) {
+    if !intent.quill_down {
+        return;
+    }
+
+    let Ok(quill_transform) = quills.single().cloned() else {
+        return;
+    };
+
+    commands.spawn((
+        HitCircle {
+            radius: SCRIBBLE_HORIZONTAL_RANGE,
+        },
+        quill_transform,
+    ));
+}
+
 #[tweak_fn]
 fn make_reticle(ratio: f32) -> Annulus {
     Annulus::new(
@@ -229,7 +264,7 @@ fn move_quill_reticle(
     }
 }
 
-const SCRIBBLE_HORIZONTAL_RANGE: f32 = 125.0;
+const SCRIBBLE_HORIZONTAL_RANGE: f32 = 100.0;
 
 #[tweak_fn]
 fn move_quill_target(
@@ -603,19 +638,31 @@ fn update_enemy_lerp_dests(
     }
 }
 
-// maybe this can be 'generic' to the relationship?
-//   and the player quill can use the relation too?
-//   would need to require transform
 #[tweak_fn]
 fn move_enemies(
     mut enemies: Query<(&mut Transform, &LerpDestination), With<Enemy>>,
     destinations: Query<&Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
+    hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
 ) {
     let enemy_lerp_speed = 0.2;
 
     for (mut enemy_transform, lerp_dest) in &mut enemies {
-        let dest_transform = destinations.get(lerp_dest.0).unwrap();
         let enemy_pos = enemy_transform.translation.xy();
+        let mut hit = false;
+        for (hit_circle, hit_transform) in &hit_circles {
+            let center = hit_transform.translation.xy();
+            let distance = enemy_pos.distance(center);
+            if distance < hit_circle.radius {
+                hit = true;
+                break;
+            }
+        }
+
+        if hit {
+            continue;
+        }
+
+        let dest_transform = destinations.get(lerp_dest.0).unwrap();
         let dest_pos = dest_transform.translation.xy();
         let moved = enemy_pos.lerp(dest_pos, enemy_lerp_speed);
         enemy_transform.translation.x = moved.x;
