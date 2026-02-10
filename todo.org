@@ -10,7 +10,7 @@
     - [X] set up ecs relationship so different enemies have different lerp targets
       maybe make the player quill use this too?
 
-  - [ ] make clicking on an enemy slow/stop it
+  - [X] make clicking on an enemy slow/stop it
     within some hit-circle range?
     stop it whenever holding down on it?
   - [ ] add an on-hit animation

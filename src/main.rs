@@ -37,13 +37,16 @@ fn main() -> AppExit {
         .add_systems(
             Update,
             (
+                // timers
                 tick_track_timer,
                 tick_beat_timer,
                 quill_reticle_size_beat,
-                // old fixed update things:
+                // interaction
                 read_input,
                 remove_hit_circles,
+                remove_got_hit,
                 add_player_hit_circle,
+                add_enemy_hits,
                 // enemies
                 spawn_enemies,
                 update_enemy_lerp_dests,
@@ -157,9 +160,43 @@ struct HitCircle {
     radius: f32,
 }
 
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct GotHit;
+
+fn add_enemy_hits(
+    mut commands: Commands,
+    enemies: Query<(Entity, &Transform), With<Enemy>>,
+    hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
+) {
+    for (enemy, enemy_transform) in &enemies {
+        let enemy_pos = enemy_transform.translation.xy();
+
+        let mut hit = false;
+        for (hit_circle, hit_transform) in &hit_circles {
+            let center = hit_transform.translation.xy();
+            let distance = enemy_pos.distance(center);
+            if distance < hit_circle.radius {
+                hit = true;
+                break;
+            }
+        }
+
+        if hit {
+            commands.entity(enemy).insert(GotHit);
+        }
+    }
+}
+
 fn remove_hit_circles(mut commands: Commands, hit_circles: Query<Entity, With<HitCircle>>) {
     for hit_circle in &hit_circles {
         commands.entity(hit_circle).despawn();
+    }
+}
+
+fn remove_got_hit(mut commands: Commands, got_hits: Query<Entity, With<GotHit>>) {
+    for ent in &got_hits {
+        commands.entity(ent).remove::<GotHit>();
     }
 }
 
@@ -640,28 +677,17 @@ fn update_enemy_lerp_dests(
 
 #[tweak_fn]
 fn move_enemies(
-    mut enemies: Query<(&mut Transform, &LerpDestination), With<Enemy>>,
+    mut enemies: Query<(&mut Transform, &LerpDestination, Option<&GotHit>), With<Enemy>>,
     destinations: Query<&Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
-    hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
 ) {
     let enemy_lerp_speed = 0.2;
 
-    for (mut enemy_transform, lerp_dest) in &mut enemies {
-        let enemy_pos = enemy_transform.translation.xy();
-        let mut hit = false;
-        for (hit_circle, hit_transform) in &hit_circles {
-            let center = hit_transform.translation.xy();
-            let distance = enemy_pos.distance(center);
-            if distance < hit_circle.radius {
-                hit = true;
-                break;
-            }
-        }
-
-        if hit {
+    for (mut enemy_transform, lerp_dest, got_hit) in &mut enemies {
+        if got_hit.is_some() {
             continue;
         }
 
+        let enemy_pos = enemy_transform.translation.xy();
         let dest_transform = destinations.get(lerp_dest.0).unwrap();
         let dest_pos = dest_transform.translation.xy();
         let moved = enemy_pos.lerp(dest_pos, enemy_lerp_speed);
