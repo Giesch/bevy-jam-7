@@ -625,7 +625,22 @@ fn spawn_enemies(
     let mesh = meshes.add(capsule);
     let color = make_enemy_color();
 
-    let enemy_pos = Vec2::splat(250.0);
+    let enemy_pos = {
+        use rand::prelude::*;
+        let mut rng = rand::rng();
+
+        let mut x = rng.random_range(250.0..500.0);
+        if rng.random_bool(0.5) {
+            x *= -1.0;
+        }
+
+        let mut y = rng.random_range(250.0..500.0);
+        if rng.random_bool(0.5) {
+            y *= -1.0;
+        }
+
+        Vec2::new(x, y)
+    };
 
     let lerp_dest = commands
         .spawn((
