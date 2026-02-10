@@ -1,20 +1,34 @@
 #+title: Todo
 
 * Now
-- [ ] gameplay for scribbling out enemies
+- [-] gameplay for scribbling out enemies
   first with no art; just capsules or something
-  - [ ] display a capsule enemy
-  - [ ] enemy moves toward the center
+  - [X] display a capsule enemy
+
+  - [X] enemy moves toward the center
     lerp forward to the beat
+    - [X] set up ecs relationship so different enemies have different lerp targets
+      maybe make the player quill use this too?
+
   - [ ] make clicking on an enemy slow/stop it
     within some hit-circle range?
+    stop it whenever holding down on it?
   - [ ] add an on-hit animation
 
 
 - [ ] add a thing to defend in the center
   french flag?
 
+- [ ] move enemies on off-beats instead of on beats?
+
 * Next
+- [ ] handle cleaning up lerp destinations
+  not using linked_spawn, so not automatically despawned
+
+- [ ] maybe change player stuff to use lerp relation
+
+- [ ] set up bevy_inspector_egui
+
 - [ ] rhythm game stuff
   - [ ] pulsing quill movement speed?
   - [ ] beat-locked soldier animations

@@ -31,27 +31,30 @@ fn main() -> AppExit {
         .insert_resource(ClearColor(Color::Srgba(tailwind::GRAY_200)))
         .init_resource::<Intent>()
         .init_resource::<BeatIndex>()
+        .insert_resource(TrackTimer::new())
+        .init_resource::<BeatTimer>()
+        .init_resource::<OnBeat>()
         .add_systems(
-            FixedUpdate,
+            Update,
             (
-                spawn_enemies,
+                tick_track_timer,
+                tick_beat_timer,
+                quill_reticle_size_beat,
+                // old fixed update things:
                 read_input,
+                // enemies
+                spawn_enemies,
+                update_enemy_lerp_dests,
+                move_enemies,
+                // player
                 move_quill_reticle,
                 move_quill_target,
                 move_quill,
                 rotate_quill_sprite,
                 drop_ink_behind_quill,
+                // cleanup
                 despawn_old_ink,
             )
-                .chain()
-                .run_if(in_state(Screen::InGame)),
-        )
-        .insert_resource(TrackTimer::new())
-        .init_resource::<BeatTimer>()
-        .init_resource::<BeatFlash>()
-        .add_systems(
-            Update,
-            (tick_track_timer, tick_beat_timer, quill_reticle_size_beat)
                 .chain()
                 .run_if(in_state(Screen::InGame)),
         )
@@ -64,6 +67,13 @@ struct StartupAssetHandles {
     #[expect(unused)]
     #[asset(path = "images/Eroica_Beethoven_title.jpg")]
     eroica_score: Handle<Image>,
+
+    #[expect(unused)]
+    #[asset(path = "audio/01_allegro.mp3")]
+    allegro: Handle<AudioSample>,
+    #[expect(unused)]
+    #[asset(path = "audio/01_allegro.beats.json")]
+    allegro_beats: Handle<Beats>,
 
     #[asset(path = "audio/03_scherzo.mp3")]
     scherzo: Handle<AudioSample>,
@@ -225,7 +235,7 @@ const SCRIBBLE_HORIZONTAL_RANGE: f32 = 125.0;
 fn move_quill_target(
     intent: Res<Intent>,
     beat_index: Res<BeatIndex>,
-    beat_flash: Res<BeatFlash>,
+    on_beat: Res<OnBeat>,
     mut quill_targets: Query<&mut Transform, With<QuillTarget>>,
 ) {
     let mut target_transform = quill_targets.single_mut().unwrap();
@@ -235,11 +245,10 @@ fn move_quill_target(
         let x_dir = if even_beat { 1.0 } else { -1.0 };
         let x = x_dir * SCRIBBLE_HORIZONTAL_RANGE;
 
-        let y = if beat_flash.0 {
+        let y = if on_beat.0 {
             let vertical_range = 30.0;
             use rand::prelude::*;
             let mut rng = rand::rng();
-
             rng.random_range(-vertical_range..vertical_range)
         } else {
             target_transform.translation.y
@@ -370,6 +379,7 @@ struct TrackTimer(Timer);
 
 impl TrackTimer {
     fn new() -> Self {
+        // TODO use actual length of the track
         let timer = Timer::new(Duration::from_mins(100), TimerMode::Once);
 
         Self(timer)
@@ -435,7 +445,7 @@ fn init_beat_timer(
 }
 
 #[derive(Resource, Default)]
-struct BeatFlash(bool);
+struct OnBeat(bool);
 
 fn tick_beat_timer(
     time: Res<Time>,
@@ -444,11 +454,11 @@ fn tick_beat_timer(
     beats_assets: Res<Assets<Beats>>,
     mut beat_index: ResMut<BeatIndex>,
     mut beat_timer: ResMut<BeatTimer>,
-    mut beat_flash: ResMut<BeatFlash>,
+    mut on_beat: ResMut<OnBeat>,
 ) {
     beat_timer.0.tick(time.delta());
-    beat_flash.0 = beat_timer.0.just_finished();
-    if beat_flash.0 {
+    on_beat.0 = beat_timer.0.just_finished();
+    if on_beat.0 {
         beat_index.0 += 1;
         let beats = beats_assets.get(&assets.scherzo_beats).unwrap();
         let track_time = track_timer.0.elapsed_secs();
@@ -523,15 +533,19 @@ impl SpriteAtlasFrameOffsets {
 #[derive(Component)]
 struct Enemy;
 
+#[derive(Component)]
+struct EnemyLerpDest;
+
+#[tweak_fn]
 fn spawn_enemies(
-    beat_flash: Res<BeatFlash>,
+    on_beat: Res<OnBeat>,
     beat_index: Res<BeatIndex>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
 ) {
     let on_beat_4 = beat_index.0 % 4 == 0;
-    if !on_beat_4 || !beat_flash.0 {
+    if !on_beat_4 || !on_beat.0 {
         return;
     }
 
@@ -539,17 +553,82 @@ fn spawn_enemies(
     let mesh = meshes.add(capsule);
     let color = make_enemy_color();
 
-    let enemy_pos = Vec2::splat(200.0);
+    let enemy_pos = Vec2::splat(250.0);
+
+    let lerp_dest = commands
+        .spawn((
+            EnemyLerpDest,
+            Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
+        ))
+        .id();
 
     commands.spawn((
         Enemy,
         Mesh2d(mesh.clone()),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
+        LerpDestination(lerp_dest),
     ));
 }
 
+#[tweak_fn]
 fn make_enemy_color() -> Color {
     let hue = 358.0;
     Color::hsl(hue, 1.0, 0.6)
 }
+
+#[tweak_fn]
+fn update_enemy_lerp_dests(
+    on_beat: Res<OnBeat>,
+    enemies: Query<(&Transform, &LerpDestination), With<Enemy>>,
+    mut destinations: Query<&mut Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
+) {
+    if !on_beat.0 {
+        return;
+    }
+
+    let enemy_lerp_range = 75.0;
+    for (enemy_transform, lerp_dest) in &enemies {
+        let enemy_pos = enemy_transform.translation.xy();
+
+        let dir_to_origin = (-enemy_pos).try_normalize();
+        let Some(dir_to_origin) = dir_to_origin else {
+            continue;
+        };
+
+        let new_dest_pos = (dir_to_origin * enemy_lerp_range) + enemy_pos;
+        let mut lerp_dest_transform = destinations.get_mut(lerp_dest.0).unwrap();
+        lerp_dest_transform.translation.x = new_dest_pos.x;
+        lerp_dest_transform.translation.y = new_dest_pos.y;
+    }
+}
+
+// maybe this can be 'generic' to the relationship?
+//   and the player quill can use the relation too?
+//   would need to require transform
+#[tweak_fn]
+fn move_enemies(
+    mut enemies: Query<(&mut Transform, &LerpDestination), With<Enemy>>,
+    destinations: Query<&Transform, (With<EnemyLerpDest>, Without<Enemy>)>,
+) {
+    let enemy_lerp_speed = 0.2;
+
+    for (mut enemy_transform, lerp_dest) in &mut enemies {
+        let dest_transform = destinations.get(lerp_dest.0).unwrap();
+        let enemy_pos = enemy_transform.translation.xy();
+        let dest_pos = dest_transform.translation.xy();
+        let moved = enemy_pos.lerp(dest_pos, enemy_lerp_speed);
+        enemy_transform.translation.x = moved.x;
+        enemy_transform.translation.y = moved.y;
+    }
+}
+
+/// The relation TO a lerp destination
+#[derive(Component)]
+#[relationship(relationship_target = Lerpers)]
+struct LerpDestination(pub Entity);
+
+/// The relation TO all lerpers to a given lerp destination
+#[derive(Component)]
+#[relationship_target(relationship = LerpDestination)]
+struct Lerpers(Vec<Entity>);
