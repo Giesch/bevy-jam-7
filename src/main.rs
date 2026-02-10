@@ -59,6 +59,7 @@ fn main() -> AppExit {
                 drop_ink_behind_quill,
                 // cleanup
                 despawn_old_ink,
+                despawn_zero_health_enemies,
             )
                 .chain()
                 .run_if(in_state(Screen::InGame)),
@@ -164,12 +165,14 @@ struct HitCircle {
 #[component(storage = "SparseSet")]
 struct GotHit;
 
+#[tweak_fn]
 fn add_enemy_hits(
     mut commands: Commands,
-    enemies: Query<(Entity, &Transform), With<Enemy>>,
+    mut enemies: Query<(Entity, &Transform, &mut Health), With<Enemy>>,
+    on_beat: Res<OnBeat>,
     hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
 ) {
-    for (enemy, enemy_transform) in &enemies {
+    for (enemy, enemy_transform, mut health) in &mut enemies {
         let enemy_pos = enemy_transform.translation.xy();
 
         let mut hit = false;
@@ -184,6 +187,9 @@ fn add_enemy_hits(
 
         if hit {
             commands.entity(enemy).insert(GotHit);
+            if on_beat.0 && health.0 > 0 {
+                health.0 -= 1;
+            }
         }
     }
 }
@@ -605,6 +611,10 @@ impl SpriteAtlasFrameOffsets {
 #[derive(Component)]
 struct Enemy;
 
+/// The number of hits remaining until despawn
+#[derive(Component)]
+struct Health(usize);
+
 #[derive(Component)]
 struct EnemyLerpDest;
 
@@ -651,11 +661,23 @@ fn spawn_enemies(
 
     commands.spawn((
         Enemy,
+        Health(4),
         Mesh2d(mesh.clone()),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
         LerpDestination(lerp_dest),
     ));
+}
+
+fn despawn_zero_health_enemies(
+    mut commands: Commands,
+    enemies: Query<(Entity, &Health), With<Enemy>>,
+) {
+    for (enemy, health) in &enemies {
+        if health.0 <= 0 {
+            commands.entity(enemy).despawn();
+        }
+    }
 }
 
 #[tweak_fn]
