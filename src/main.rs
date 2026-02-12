@@ -27,7 +27,13 @@ fn main() -> AppExit {
         ))
         .add_systems(
             OnEnter(Screen::InGame),
-            (play_scherzo, init_beat_timer, spawn_camera, spawn_quill),
+            (
+                play_scherzo,
+                init_beat_timer,
+                spawn_camera,
+                spawn_flag,
+                spawn_quill,
+            ),
         )
         .insert_resource(ClearColor(Color::Srgba(tailwind::GRAY_200)))
         .init_resource::<Intent>()
@@ -120,9 +126,10 @@ struct QuillTarget;
 const RETICLE_BIG_INNER_RADIUS: f32 = 30.0;
 const RETICLE_BIG_OUTER_RADIUS: f32 = 40.0;
 
-const RETICLE_Z: f32 = 10.0;
-const INK_Z: f32 = 5.0;
-const ENEMY_Z: f32 = 0.0;
+const RETICLE_Z: f32 = 15.0;
+const INK_Z: f32 = 10.0;
+const ENEMY_Z: f32 = 5.0;
+const FLAG_Z: f32 = 0.0;
 
 fn spawn_quill(
     mut commands: Commands,
@@ -155,6 +162,47 @@ fn spawn_quill(
         ],
     ));
 }
+
+fn spawn_flag(
+    mut commands: Commands,
+    asset_handles: Res<StartupAssetHandles>,
+    atlases: Res<Assets<SpriteAtlas>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let atlas = atlases.get(&asset_handles.sprite_atlas).unwrap();
+    let offsets = atlas.get_offsets_or_panic("flag");
+    let sprite = Sprite {
+        image: asset_handles.sprite_sheet.clone(),
+        rect: Some(offsets.as_rect()),
+        ..default()
+    };
+
+    // TODO make reusable
+    let healthbar_capsule = make_healthbar_capsule(1.0);
+    let healthbar_color = Color::Srgba(tailwind::RED_400);
+    let healthbar_transform = Transform {
+        translation: Vec3::new(0.0, 48.0, FLAG_Z + 1.0),
+        rotation: Quat::from_rotation_z(FRAC_PI_2), // 90 deg
+        scale: Vec3::ONE,
+    };
+
+    commands.spawn((
+        Flag,
+        Anchor::CENTER,
+        sprite,
+        Transform::from_translation(Vec2::ZERO.extend(FLAG_Z)),
+        children![(
+            Healthbar,
+            Mesh2d(meshes.add(healthbar_capsule)),
+            MeshMaterial2d(materials.add(healthbar_color)),
+            healthbar_transform
+        )],
+    ));
+}
+
+#[derive(Component)]
+struct Flag;
 
 #[derive(Component)]
 #[component(storage = "SparseSet")]
@@ -675,6 +723,7 @@ fn spawn_enemies(
         ..default()
     };
 
+    // TODO make reusable
     let healthbar_capsule = make_healthbar_capsule(1.0);
     let healthbar_color = Color::Srgba(tailwind::RED_400);
     let healthbar_transform = Transform {

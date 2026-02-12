@@ -1,6 +1,14 @@
 #+title: Bevy Jam 7
 
 * Now
+- minimal game loop
+  - [-] a way to lose
+    - [X] add flag
+    - [ ] make flag take damage
+    - [ ] lose when flag dies
+  - [ ] a way to win
+    - [ ] end of the track? too long?
+
 - make gamestate readable
   - [X] add enemy health bars
   - [ ] add a death animation
@@ -23,10 +31,11 @@
   - [ ] pulsing quill movement speed?
   - [ ] beat-locked soldier animations
 
-- [ ] pixel art
+- [-] pixel art
   - [ ] replace ring with quill sprite
     - [ ] short animation
-  - [ ] soldiers
+  - [-] soldiers
+    - [X] sprite
     - [ ] variety of animations?
       trace from examples?
 
