@@ -1,3 +1,4 @@
+use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
 
 use bevy::color::palettes::tailwind;
@@ -148,10 +149,10 @@ fn spawn_quill(
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(translation),
-        Children::spawn((
-            Spawn((Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default())),
-            Spawn((QuillTarget, Transform::default())),
-        )),
+        children![
+            (Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default()),
+            (QuillTarget, Transform::default()),
+        ],
     ));
 }
 
@@ -171,6 +172,9 @@ fn add_enemy_hits(
     mut enemies: Query<(Entity, &Transform, &mut Health), With<Enemy>>,
     on_beat: Res<OnBeat>,
     hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    children: Query<&Children>,
+    health_bars: Query<Entity, With<Healthbar>>,
 ) {
     for (enemy, enemy_transform, mut health) in &mut enemies {
         let enemy_pos = enemy_transform.translation.xy();
@@ -186,9 +190,24 @@ fn add_enemy_hits(
         }
 
         if hit {
-            commands.entity(enemy).insert(GotHit);
-            if on_beat.0 && health.0 > 0 {
-                health.0 -= 1;
+            let mut enemy_cmds = commands.entity(enemy);
+            enemy_cmds.insert(GotHit);
+            if on_beat.0 {
+                health.remaining -= 1;
+            }
+
+            // TODO there has to be a better way to do this
+            for child in children.iter_descendants(enemy) {
+                let Ok(health_bar) = health_bars.get(child) else {
+                    continue;
+                };
+
+                let capsule =
+                    make_healthbar_capsule(health.remaining as f32 / health.maximum as f32);
+
+                commands
+                    .entity(health_bar)
+                    .insert(Mesh2d(meshes.add(capsule)));
             }
         }
     }
@@ -613,7 +632,22 @@ struct Enemy;
 
 /// The number of hits remaining until despawn
 #[derive(Component)]
-struct Health(usize);
+struct Health {
+    remaining: i32,
+    maximum: i32,
+}
+
+#[derive(Component)]
+struct Healthbar;
+
+impl Health {
+    fn new(max: i32) -> Self {
+        Self {
+            remaining: max,
+            maximum: max,
+        }
+    }
+}
 
 #[derive(Component)]
 struct EnemyLerpDest;
@@ -631,9 +665,16 @@ fn spawn_enemies(
         return;
     }
 
-    let capsule = Capsule2d::new(20.0, 40.0);
-    let mesh = meshes.add(capsule);
-    let color = make_enemy_color();
+    let enemy_capsule = Capsule2d::new(20.0, 40.0);
+    let enemy_color = make_enemy_color();
+
+    let healthbar_capsule = make_healthbar_capsule(1.0);
+    let healthbar_color = Color::Srgba(tailwind::RED_400);
+    let healthbar_transform = Transform {
+        translation: Vec3::new(0.0, 48.0, ENEMY_Z + 1.0),
+        rotation: Quat::from_rotation_z(FRAC_PI_2), // 90 deg
+        scale: Vec3::ONE,
+    };
 
     let enemy_pos = {
         use rand::prelude::*;
@@ -661,12 +702,23 @@ fn spawn_enemies(
 
     commands.spawn((
         Enemy,
-        Health(4),
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(materials.add(color)),
+        Mesh2d(meshes.add(enemy_capsule)),
+        MeshMaterial2d(materials.add(enemy_color)),
         Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
         LerpDestination(lerp_dest),
+        Health::new(4),
+        children![(
+            Healthbar,
+            Mesh2d(meshes.add(healthbar_capsule)),
+            MeshMaterial2d(materials.add(healthbar_color)),
+            healthbar_transform
+        )],
     ));
+}
+
+#[tweak_fn]
+fn make_healthbar_capsule(ratio: f32) -> Capsule2d {
+    Capsule2d::new(4.0, 32.0 * ratio)
 }
 
 fn despawn_zero_health_enemies(
@@ -674,7 +726,7 @@ fn despawn_zero_health_enemies(
     enemies: Query<(Entity, &Health), With<Enemy>>,
 ) {
     for (enemy, health) in &enemies {
-        if health.0 <= 0 {
+        if health.remaining <= 0 {
             commands.entity(enemy).despawn();
         }
     }

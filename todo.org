@@ -1,25 +1,15 @@
-#+title: Todo
+#+title: Bevy Jam 7
 
 * Now
-- [-] gameplay for scribbling out enemies
-  first with no art; just capsules or something
-  - [X] display a capsule enemy
+- make gamestate readable
+  - [X] add enemy health bars
+  - [ ] add more of an on-hit animation
+  - [ ] add a death animation
 
-  - [X] enemy moves toward the center
-    lerp forward to the beat
-    - [X] set up ecs relationship so different enemies have different lerp targets
-      maybe make the player quill use this too?
-
-  - [X] make clicking on an enemy slow/stop it
-    within some hit-circle range?
-    stop it whenever holding down on it?
-  - [ ] add an on-hit animation
-
-
-- [ ] add a thing to defend in the center
-  french flag?
-
-- [ ] move enemies on off-beats instead of on beats?
+- change movement/controls
+  - [ ] add a character moved with wasd
+    beethoven? a french flag?
+  - [ ] replace mosue controls with that
 
 * Next
 - [ ] handle cleaning up lerp destinations
