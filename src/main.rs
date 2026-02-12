@@ -527,6 +527,7 @@ impl BeatTimer {
     //   faster on the way down?
     fn angle_wave(&self) -> f32 {
         let one_on_beat = (0.5 - self.elapsed_ratio()).abs() * 0.5 + 0.5;
+        #[allow(clippy::let_and_return)]
         let zero_on_beat = 1.0 - one_on_beat;
         zero_on_beat
     }
