@@ -440,13 +440,12 @@ fn drop_ink_behind_quill(
                 return;
             }
 
+            let spawn_beat = beat_index.0;
             let mesh = meshes.add(capsule);
             let color = make_ink_color();
 
             commands.spawn((
-                Ink {
-                    spawn_beat: beat_index.0,
-                },
+                Ink { spawn_beat },
                 Mesh2d(mesh.clone()),
                 MeshMaterial2d(materials.add(color)),
                 capsule_transform,
@@ -660,14 +659,21 @@ fn spawn_enemies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut commands: Commands,
+    asset_handles: Res<StartupAssetHandles>,
+    atlases: Res<Assets<SpriteAtlas>>,
 ) {
     let on_beat_4 = beat_index.0 % 4 == 0;
     if !on_beat_4 || !on_beat.0 {
         return;
     }
 
-    let enemy_capsule = Capsule2d::new(20.0, 40.0);
-    let enemy_color = make_enemy_color();
+    let atlas = atlases.get(&asset_handles.sprite_atlas).unwrap();
+    let offsets = atlas.get_offsets_or_panic("soldier");
+    let sprite = Sprite {
+        image: asset_handles.sprite_sheet.clone(),
+        rect: Some(offsets.as_rect()),
+        ..default()
+    };
 
     let healthbar_capsule = make_healthbar_capsule(1.0);
     let healthbar_color = Color::Srgba(tailwind::RED_400);
@@ -703,8 +709,8 @@ fn spawn_enemies(
 
     commands.spawn((
         Enemy,
-        Mesh2d(meshes.add(enemy_capsule)),
-        MeshMaterial2d(materials.add(enemy_color)),
+        Anchor::CENTER,
+        sprite,
         Transform::from_translation(enemy_pos.extend(ENEMY_Z)),
         LerpDestination(lerp_dest),
         Health::new(4),
@@ -731,12 +737,6 @@ fn despawn_zero_health_enemies(
             commands.entity(enemy).despawn();
         }
     }
-}
-
-#[tweak_fn]
-fn make_enemy_color() -> Color {
-    let hue = 358.0;
-    Color::hsl(hue, 1.0, 0.6)
 }
 
 #[tweak_fn]

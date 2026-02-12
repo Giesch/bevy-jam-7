@@ -3,8 +3,8 @@
 * Now
 - make gamestate readable
   - [X] add enemy health bars
-  - [ ] add more of an on-hit animation
   - [ ] add a death animation
+  - [ ] add more of an on-hit animation
 
 - change movement/controls
   - [ ] add a character moved with wasd
