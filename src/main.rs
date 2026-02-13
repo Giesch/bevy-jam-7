@@ -54,6 +54,8 @@ fn main() -> AppExit {
                 remove_got_hit,
                 add_player_hit_circle,
                 add_enemy_hits,
+                add_flag_hits,
+                check_game_over,
                 // enemies
                 spawn_enemies,
                 update_enemy_lerp_dests,
@@ -104,6 +106,7 @@ enum Screen {
     #[default]
     Loading,
     InGame,
+    GameOver,
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -178,7 +181,6 @@ fn spawn_flag(
         ..default()
     };
 
-    // TODO make reusable
     let healthbar_capsule = make_healthbar_capsule(1.0);
     let healthbar_color = Color::Srgba(tailwind::RED_400);
     let healthbar_transform = Transform {
@@ -192,6 +194,7 @@ fn spawn_flag(
         Anchor::CENTER,
         sprite,
         Transform::from_translation(Vec2::ZERO.extend(FLAG_Z)),
+        Health::new(8),
         children![(
             Healthbar,
             Mesh2d(meshes.add(healthbar_capsule)),
@@ -217,14 +220,13 @@ struct GotHit;
 #[tweak_fn]
 fn add_enemy_hits(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Transform, &mut Health), With<Enemy>>,
+    mut enemies: Query<(Entity, &Transform, &mut Health, &Children), With<Enemy>>,
     on_beat: Res<OnBeat>,
     hit_circles: Query<(&HitCircle, &Transform), Without<Enemy>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    children: Query<&Children>,
     health_bars: Query<Entity, With<Healthbar>>,
 ) {
-    for (enemy, enemy_transform, mut health) in &mut enemies {
+    for (enemy, enemy_transform, mut health, children) in &mut enemies {
         let enemy_pos = enemy_transform.translation.xy();
 
         let mut hit = false;
@@ -238,41 +240,129 @@ fn add_enemy_hits(
         }
 
         if hit {
-            let mut enemy_cmds = commands.entity(enemy);
-            enemy_cmds.insert(GotHit);
+            commands.entity(enemy).insert(GotHit);
             if on_beat.0 {
                 health.remaining -= 1;
             }
 
             // TODO there has to be a better way to do this
-            for child in children.iter_descendants(enemy) {
-                let Ok(health_bar) = health_bars.get(child) else {
-                    continue;
-                };
-
-                let capsule =
-                    make_healthbar_capsule(health.remaining as f32 / health.maximum as f32);
-
-                commands
-                    .entity(health_bar)
-                    .insert(Mesh2d(meshes.add(capsule)));
+            //   try to be general across all heathbars
+            //   make a separate system that uses change detection?
+            //   use an observer?
+            for &child in children {
+                update_health_bar(&mut health, &mut commands, child, &mut meshes, health_bars);
             }
         }
     }
 }
 
+// TODO this should be a system probably
+fn update_health_bar(
+    health: &mut Health,
+    commands: &mut Commands,
+    child: Entity,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    health_bars: Query<Entity, With<Healthbar>>,
+) {
+    let Ok(health_bar) = health_bars.get(child) else {
+        return;
+    };
+
+    let capsule = make_healthbar_capsule(health.remaining as f32 / health.maximum as f32);
+
+    commands
+        .entity(health_bar)
+        .insert(Mesh2d(meshes.add(capsule)));
+}
+
+#[tweak_fn]
+fn add_flag_hits(
+    mut commands: Commands,
+    // TODO use hitcircle again?
+    enemies: Query<&Transform, (With<Enemy>, Without<GotHit>)>,
+    mut flags: Query<
+        (
+            Entity,
+            &Transform,
+            Option<&GotHitCooldown>,
+            &mut Health,
+            &Children,
+        ),
+        With<Flag>,
+    >,
+    beat_index: Res<BeatIndex>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    health_bars: Query<Entity, With<Healthbar>>,
+) {
+    for (flag, flag_transform, cooldown, mut flag_health, children) in &mut flags {
+        // TODO only damage on beat, but always show animation of some kind?
+        //   but they will pass over it after the beat
+        //   so really we just want a cooldown? on the flag, not on the enemies
+        let flag_pos = flag_transform.translation.xy();
+        let enemy_hit_radius = 20.0;
+        let mut hit = false;
+        for enemy_transform in &enemies {
+            let enemy_pos = enemy_transform.translation.xy();
+            let distance = enemy_pos.distance(flag_pos);
+            if distance > enemy_hit_radius {
+                continue;
+            }
+
+            hit = true;
+            break;
+        }
+
+        if hit && cooldown.is_none() {
+            commands
+                .entity(flag)
+                .insert((GotHit, GotHitCooldown(beat_index.0)));
+            flag_health.remaining -= 1;
+            for &child in children {
+                update_health_bar(
+                    &mut flag_health,
+                    &mut commands,
+                    child,
+                    &mut meshes,
+                    health_bars,
+                );
+            }
+            // let thing = children.get(asdf)
+            // TODO also change mesh
+        } else if let Some(cooldown_beat) = cooldown
+            && !hit
+        {
+            if beat_index.0 != cooldown_beat.0 {
+                commands.entity(flag).remove::<GotHitCooldown>();
+            }
+        }
+    }
+}
+
+fn check_game_over(flags: Query<&Health, With<Flag>>, mut next_screen: ResMut<NextState<Screen>>) {
+    let flag_health = flags.single().unwrap();
+    if flag_health.remaining <= 0 {
+        next_screen.set(Screen::GameOver);
+    }
+}
+
+#[derive(Component)]
+struct GotHitCooldown(usize);
+
+#[tweak_fn]
 fn remove_hit_circles(mut commands: Commands, hit_circles: Query<Entity, With<HitCircle>>) {
     for hit_circle in &hit_circles {
         commands.entity(hit_circle).despawn();
     }
 }
 
+#[tweak_fn]
 fn remove_got_hit(mut commands: Commands, got_hits: Query<Entity, With<GotHit>>) {
     for ent in &got_hits {
         commands.entity(ent).remove::<GotHit>();
     }
 }
 
+#[tweak_fn]
 fn add_player_hit_circle(
     mut commands: Commands,
     intent: Res<Intent>,
@@ -320,7 +410,6 @@ fn quill_reticle_size_beat(
     let shape = make_reticle(ratio);
     let color = make_reticle_color(ratio);
     for (mut mesh, mut material) in &mut reticles {
-        // TODO does making a bunch of these cost anything?
         mesh.0 = meshes.add(shape);
         material.0 = materials.add(color);
     }
@@ -723,7 +812,7 @@ fn spawn_enemies(
         ..default()
     };
 
-    // TODO make reusable
+    // TODO make reusable; use an observer & spawner pattern?
     let healthbar_capsule = make_healthbar_capsule(1.0);
     let healthbar_color = Color::Srgba(tailwind::RED_400);
     let healthbar_transform = Transform {

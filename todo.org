@@ -9,6 +9,10 @@
   - [ ] a way to win
     - [ ] end of the track? too long?
 
+- sound effects
+  - [ ] on enemy hit
+  - [ ] on flag hit
+
 - make gamestate readable
   - [X] add enemy health bars
   - [ ] add a death animation
