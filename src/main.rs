@@ -804,23 +804,6 @@ fn spawn_enemies(
         return;
     }
 
-    let atlas = atlases.get(&asset_handles.sprite_atlas).unwrap();
-    let offsets = atlas.get_offsets_or_panic("soldier");
-    let sprite = Sprite {
-        image: asset_handles.sprite_sheet.clone(),
-        rect: Some(offsets.as_rect()),
-        ..default()
-    };
-
-    // TODO make reusable; use an observer & spawner pattern?
-    let healthbar_capsule = make_healthbar_capsule(1.0);
-    let healthbar_color = Color::Srgba(tailwind::RED_400);
-    let healthbar_transform = Transform {
-        translation: Vec3::new(0.0, 48.0, ENEMY_Z + 1.0),
-        rotation: Quat::from_rotation_z(FRAC_PI_2), // 90 deg
-        scale: Vec3::ONE,
-    };
-
     let enemy_pos = {
         use rand::prelude::*;
         let mut rng = rand::rng();
@@ -836,6 +819,24 @@ fn spawn_enemies(
         }
 
         Vec2::new(x, y)
+    };
+
+    let atlas = atlases.get(&asset_handles.sprite_atlas).unwrap();
+    let offsets = atlas.get_offsets_or_panic("soldier");
+    let sprite = Sprite {
+        image: asset_handles.sprite_sheet.clone(),
+        rect: Some(offsets.as_rect()),
+        flip_x: enemy_pos.x > 0.0,
+        ..default()
+    };
+
+    // TODO make reusable; use an observer & spawner pattern?
+    let healthbar_capsule = make_healthbar_capsule(1.0);
+    let healthbar_color = Color::Srgba(tailwind::RED_400);
+    let healthbar_transform = Transform {
+        translation: Vec3::new(0.0, 48.0, ENEMY_Z + 1.0),
+        rotation: Quat::from_rotation_z(FRAC_PI_2), // 90 deg
+        scale: Vec3::ONE,
     };
 
     let lerp_dest = commands
