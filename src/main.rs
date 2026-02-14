@@ -1,6 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
 
+use bevy::asset::AssetMetaCheck;
 use bevy::color::palettes::tailwind;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -13,7 +14,25 @@ use inline_tweak::*;
 
 fn main() -> AppExit {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                .set(AssetPlugin {
+                    // Wasm builds will check for meta files (that don't exist) if this isn't set.
+                    // This causes errors and even panics on web build on itch.
+                    // See https://github.com/bevyengine/bevy_github_ci_template/issues/48.
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Window {
+                        title: "vivace".to_string(),
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }
+                    .into(),
+                    ..default()
+                }),
+        )
         .init_state::<Screen>()
         .add_loading_state(
             LoadingState::new(Screen::Loading)
