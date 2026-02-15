@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(grep:*)",
+      "Bash(timeout 15 just dev:*)",
+      "Bash(find:*)",
+      "Bash(bevy run:*)",
+      "Bash(cargo check:*)",
+      "WebSearch",
+      "WebFetch(domain:thebevyflock.github.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(rustup component add:*)"
+    ]
+  }
+}

@@ -41,7 +41,12 @@ fn main() -> AppExit {
                 .load_collection::<StartupAssetHandles>(),
         )
         .add_plugins((
-            SeedlingPlugin::default(),
+            {
+                #[cfg(target_arch = "wasm32")]
+                { SeedlingPlugin::new_web_audio() }
+                #[cfg(not(target_arch = "wasm32"))]
+                { SeedlingPlugin::default() }
+            },
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
             JsonAssetPlugin::<SpriteAtlas>::new(&["atlas.json"]),
         ))

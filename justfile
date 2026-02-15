@@ -8,7 +8,7 @@ dev:
 
 # web dev build
 web:
-    bevy run web
+    bevy run web -U multi-threading
 
 # write *.beats.json assets based on automatically extracted timestamps
 [unix]
