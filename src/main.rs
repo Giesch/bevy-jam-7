@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use bevy::asset::AssetMetaCheck;
 use bevy::color::palettes::tailwind;
+use bevy::ecs::spawn::SpawnWith;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
@@ -36,7 +37,7 @@ fn main() -> AppExit {
         .init_state::<Screen>()
         .add_loading_state(
             LoadingState::new(Screen::Loading)
-                .continue_to_state(Screen::InGame)
+                .continue_to_state(Screen::Menu)
                 .load_collection::<StartupAssetHandles>(),
         )
         .add_plugins((
@@ -44,12 +45,12 @@ fn main() -> AppExit {
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
             JsonAssetPlugin::<SpriteAtlas>::new(&["atlas.json"]),
         ))
+        .add_systems(OnEnter(Screen::Menu), (spawn_camera, spawn_main_menu))
         .add_systems(
             OnEnter(Screen::InGame),
             (
                 play_scherzo,
                 init_beat_timer,
-                spawn_camera,
                 spawn_flag,
                 spawn_quill,
             ),
@@ -124,6 +125,8 @@ struct StartupAssetHandles {
 enum Screen {
     #[default]
     Loading,
+    // TODO change loading transitions
+    Menu,
     InGame,
     GameOver,
 }
@@ -178,6 +181,7 @@ fn spawn_quill(
         Mesh2d(mesh),
         MeshMaterial2d(materials.add(color)),
         Transform::from_translation(translation),
+        Visibility::default(),
         children![
             (Quill, Anchor::BOTTOM_LEFT, sprite, Transform::default()),
             (QuillTarget, Transform::default()),
@@ -955,3 +959,61 @@ struct LerpDestination(pub Entity);
 #[derive(Component)]
 #[relationship_target(relationship = LerpDestination)]
 struct Lerpers(Vec<Entity>);
+
+fn spawn_main_menu(mut commands: Commands) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(40.0),
+            ..default()
+        },
+        GlobalZIndex(2),
+        DespawnOnExit(Screen::Menu),
+        Pickable::IGNORE,
+        Children::spawn(SpawnWith(|parent: &mut ChildSpawner| {
+            // Title
+            parent.spawn((
+                Text::new("vivace"),
+                TextFont {
+                    font_size: 72.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.15, 0.15, 0.15)),
+            ));
+            // Play button
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(200.0),
+                        height: Val::Px(65.0),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        border: UiRect::all(Val::Px(3.0)),
+                        border_radius: BorderRadius::MAX,
+                        ..default()
+                    },
+                    BorderColor::all(Color::srgb(0.15, 0.15, 0.15)),
+                    BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                    children![(
+                        Text::new("Play"),
+                        TextFont {
+                            font_size: 40.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                        Pickable::IGNORE,
+                    )],
+                ))
+                .observe(start_game);
+        })),
+    ));
+}
+
+fn start_game(_on_click: On<Pointer<Click>>, mut next_screen: ResMut<NextState<Screen>>) {
+    next_screen.set(Screen::InGame)
+}

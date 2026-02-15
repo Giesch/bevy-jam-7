@@ -1,11 +1,18 @@
 #+title: Bevy Jam 7
 
 * Now
+- fix web audio
+  - [X] web asset settings
+  - [ ] add menu state
+
 - minimal game loop
   - [-] a way to lose
     - [X] add flag
-    - [ ] make flag take damage
-    - [ ] lose when flag dies
+    - [X] make flag take damage
+    - [-] lose when flag dies
+      - [X] add state
+      - [ ] message/sprite
+
   - [ ] a way to win
     - [ ] end of the track? too long?
 
