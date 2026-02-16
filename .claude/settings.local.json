@@ -5,15 +5,15 @@
       "Bash(grep:*)",
       "Bash(timeout 15 just dev:*)",
       "Bash(find:*)",
-      "Bash(bevy run:*)",
       "Bash(cargo check:*)",
-      "WebSearch",
-      "WebFetch(domain:thebevyflock.github.io)",
-      "WebFetch(domain:github.com)",
       "Bash(rustup component add:*)",
       "Bash(cargo tree:*)",
+      "Bash(git ls-tree:*)",
       "Bash(bevy --help:*)",
-      "Bash(bevy build:*)"
+      "Bash(bevy build:*)",
+      "WebSearch",
+      "WebFetch(domain:bevy-cheatbook.github.io)",
+      "WebFetch(domain:thebevyflock.github.io)"
     ]
   }
 }
