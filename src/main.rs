@@ -41,24 +41,14 @@ fn main() -> AppExit {
                 .load_collection::<StartupAssetHandles>(),
         )
         .add_plugins((
-            {
-                #[cfg(target_arch = "wasm32")]
-                { SeedlingPlugin::new_web_audio() }
-                #[cfg(not(target_arch = "wasm32"))]
-                { SeedlingPlugin::default() }
-            },
+            SeedlingPlugin::default(),
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
             JsonAssetPlugin::<SpriteAtlas>::new(&["atlas.json"]),
         ))
         .add_systems(OnEnter(Screen::Menu), (spawn_camera, spawn_main_menu))
         .add_systems(
             OnEnter(Screen::InGame),
-            (
-                play_scherzo,
-                init_beat_timer,
-                spawn_flag,
-                spawn_quill,
-            ),
+            (play_scherzo, init_beat_timer, spawn_flag, spawn_quill),
         )
         .insert_resource(ClearColor(Color::Srgba(tailwind::GRAY_200)))
         .init_resource::<Intent>()
