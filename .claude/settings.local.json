@@ -10,7 +10,10 @@
       "WebSearch",
       "WebFetch(domain:thebevyflock.github.io)",
       "WebFetch(domain:github.com)",
-      "Bash(rustup component add:*)"
+      "Bash(rustup component add:*)",
+      "Bash(cargo tree:*)",
+      "Bash(bevy --help:*)",
+      "Bash(bevy build:*)"
     ]
   }
 }

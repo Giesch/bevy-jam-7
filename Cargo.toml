@@ -79,6 +79,11 @@ default-features = false
 # Disable native features for web builds.
 default-features = false
 
+[package.metadata.bevy_cli.web.unstable]
+# Required for bevy_seedling's web_audio backend (firewheel-web-audio),
+# which uses an AudioWorklet with shared WebAssembly memory.
+web-multi-threading = true
+
 [package.metadata.bevy_cli.web.dev]
 features = ["dev"]
 
