@@ -13,9 +13,7 @@
       "Bash(bevy build:*)",
       "WebSearch",
       "WebFetch(domain:bevy-cheatbook.github.io)",
-      "WebFetch(domain:thebevyflock.github.io)",
-      "Bash(wasm-objdump:*)",
-      "Bash(gh issue view:*)"
+      "WebFetch(domain:thebevyflock.github.io)"
     ]
   }
 }
