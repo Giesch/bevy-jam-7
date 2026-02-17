@@ -13,7 +13,8 @@
       "Bash(bevy build:*)",
       "WebSearch",
       "WebFetch(domain:bevy-cheatbook.github.io)",
-      "WebFetch(domain:thebevyflock.github.io)"
+      "WebFetch(domain:thebevyflock.github.io)",
+      "Bash(gh repo view:*)"
     ]
   }
 }

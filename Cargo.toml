@@ -127,6 +127,9 @@ opt-level = "s"
 strip = "debuginfo"
 
 # Optimize for build time in CI.
+[patch.crates-io]
+bevy_seedling = { git = "https://github.com/Giesch/bevy_seedling", branch = "fix-wasm-cpal" }
+
 [profile.ci]
 inherits = "dev"
 opt-level = 0
