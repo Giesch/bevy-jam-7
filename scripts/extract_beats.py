@@ -30,13 +30,13 @@ def write_beats_json(audio_path_str):
         'beats_intervals': beats_intervals.tolist(),
     }
 
-    json_path = audio_path_str.replace('mp3', 'beats.json')
+    json_path = audio_path_str.replace('flac', 'beats.json')
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(json_beats, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
     audio_dir = sys.argv[1]
-    audio_paths = Path(audio_dir).glob('**/*.mp3')
+    audio_paths = Path(audio_dir).glob('**/*.flac')
     for audio_path in audio_paths:
         write_beats_json(str(audio_path))

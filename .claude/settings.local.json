@@ -14,7 +14,10 @@
       "WebSearch",
       "WebFetch(domain:bevy-cheatbook.github.io)",
       "WebFetch(domain:thebevyflock.github.io)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "Bash(wasm2wat:*)",
+      "WebFetch(domain:docs.rs)",
+      "Bash(ffprobe:*)"
     ]
   }
 }

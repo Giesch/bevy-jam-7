@@ -10,7 +10,7 @@ use bevy::window::PrimaryWindow;
 
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::json::JsonAssetPlugin;
-use bevy_seedling::prelude::*;
+use bevy_kira_audio::prelude::*;
 use inline_tweak::*;
 
 fn main() -> AppExit {
@@ -41,12 +41,7 @@ fn main() -> AppExit {
                 .load_collection::<StartupAssetHandles>(),
         )
         .add_plugins((
-            {
-                #[cfg(target_arch = "wasm32")]
-                { SeedlingPlugin::new_web_audio() }
-                #[cfg(not(target_arch = "wasm32"))]
-                { SeedlingPlugin::default() }
-            },
+            AudioPlugin,
             JsonAssetPlugin::<Beats>::new(&["beats.json"]),
             JsonAssetPlugin::<SpriteAtlas>::new(&["atlas.json"]),
         ))
@@ -108,15 +103,8 @@ struct StartupAssetHandles {
     #[asset(path = "images/Eroica_Beethoven_title.jpg")]
     eroica_score: Handle<Image>,
 
-    #[expect(unused)]
-    #[asset(path = "audio/01_allegro.mp3")]
-    allegro: Handle<AudioSample>,
-    #[expect(unused)]
-    #[asset(path = "audio/01_allegro.beats.json")]
-    allegro_beats: Handle<Beats>,
-
-    #[asset(path = "audio/03_scherzo.mp3")]
-    scherzo: Handle<AudioSample>,
+    #[asset(path = "audio/03_scherzo.flac")]
+    scherzo: Handle<AudioSource>,
     #[asset(path = "audio/03_scherzo.beats.json")]
     scherzo_beats: Handle<Beats>,
 
@@ -140,8 +128,8 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn play_scherzo(mut commands: Commands, assets: Res<StartupAssetHandles>) {
-    commands.spawn(SamplePlayer::new(assets.scherzo.clone()));
+fn play_scherzo(assets: Res<StartupAssetHandles>, audio: Res<Audio>) {
+    audio.play(assets.scherzo.clone());
 }
 
 #[derive(Component)]

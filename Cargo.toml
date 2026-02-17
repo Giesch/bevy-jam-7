@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy_seedling = { version = "0.7.0", features = ["rand", "flac", "mp3", "web_audio"] }
-# disabling the default bevy audio feature, to replace it with seedling
-# https://github.com/CorvusPrudens/bevy_seedling?tab=readme-ov-file#getting-started
+bevy_kira_audio = { version = "0.25.0", features = ["flac"] }
 bevy = { version = "0.18.0", default-features = false, features = [
   # 2d
   "2d_bevy_render",
@@ -79,11 +77,6 @@ default-features = false
 # Disable native features for web builds.
 default-features = false
 
-[package.metadata.bevy_cli.web.unstable]
-# Required for bevy_seedling's web_audio backend (firewheel-web-audio),
-# which uses an AudioWorklet with shared WebAssembly memory.
-web-multi-threading = true
-
 [package.metadata.bevy_cli.web.dev]
 features = ["dev"]
 
@@ -127,9 +120,6 @@ opt-level = "s"
 strip = "debuginfo"
 
 # Optimize for build time in CI.
-[patch.crates-io]
-bevy_seedling = { git = "https://github.com/Giesch/bevy_seedling", branch = "fix-wasm-cpal" }
-
 [profile.ci]
 inherits = "dev"
 opt-level = 0
